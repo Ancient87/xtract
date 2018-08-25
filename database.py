@@ -11,7 +11,7 @@ DB_HOST = os.environ['DB_HOST']
 DB_NAME = os.environ['DB_NAME']
 
 # Construct DB string
-DB_URL = "postgresql://{user}:{passwd}@{host}/{db}".format( \
+DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format( \
 	user = DB_USER, \
 	passwd = DB_PASSWD, \
 	host = DB_HOST, \
@@ -29,5 +29,6 @@ def init_db():
     # import all modules here that might define models so that
     # they will be registered properly on the metadata.  Otherwise
     # you will have to import them first before calling init_db()
-    import StockDataModel
-    Base.metadata.create_all(bind=engine)
+    import stockdatamodel
+    print("Attempting DB connection to {0}".format(DB_URL))
+    return Base.metadata.create_all(bind=engine)
