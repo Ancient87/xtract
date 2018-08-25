@@ -14,7 +14,7 @@ APP_PORT = os.environ['APP_PORT']
 
 app = connexion.App(__name__, specificatyion_dir="./")
 
-app.add_api('xtract_api_spec.yaml', resolver=RestyResolver('api'))
+app.add_api('xtract_api_spec.yaml', resolver=RestyResolver('api'), validate_response=True)
 application = app.app
 
 @app.route('/')
