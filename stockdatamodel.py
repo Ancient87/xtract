@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, String
-from yourapplication.database import Base
+from sqlalchemy import Column, Integer, Float, String, Date
+from database import Base
 
 class Financials(Base):
     __tablename__ = 'financials'
-    ticker = Column(String, primary_key=True)
+    ticker = Column(String(10), primary_key=True)
     period = Column(Date, primary_key=True)
     gross_margin = Column(Float)
     operating_income = Column(Float)
@@ -19,36 +19,25 @@ class Financials(Base):
     fcf = Column(Float)
     working_capital = Column(Float)
 
-    def __init__(self, ticker, period, gross_margin, operating_income, operating_margin, net_income, eps, dividends, payout_ratio, shares, bps, operating_cash_flow, cap_spending, fcf, working_capital)
+    def __repr__(self):
+        return '<ticker: {ticker}, period: {period}, eps: {eps}>'.format(ticker = self.ticker, period = self.period, eps = self.eps)
 
-        self.ticker = ticker
-        self.period = period
-        self.gross_margin = gross_margin
-        self.operating_income = operating_income
-        self.operating_margin = operating_margin
-        self.net_income = net_income
-        self.eps = eps
-        self.dividends = dividends
-        self.payout_ratio = payout_ratio
-        self.shares = shares
-        self.bps = bps
-        self.operating_cash_flow = operating_cash_flow
-        self.cap_spending = cap_spending
-        self.fcf = fcf
-        self.working_capital = working_capital
+    def dump(self):
+        return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
 
 class Health(Base):
    __tablename__ = 'health'
-   ticker = Column(String, primary_key=True)
-   period = Column(String, primary_key=True)
+   ticker = Column(String(10), primary_key=True)
+   period = Column(String(10), primary_key=True)
    current_ratio = Column(Float)
    debt_equity = Column(Float)
 
+'''
     def __init__(self, ticker, period, current_ratio, debt_equity):
         self.ticker = ticker
         self.period = period
         self.current_ratio = current_ratio
         self.debt_equity = debt_equity
-
+'''
 
 

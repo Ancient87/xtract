@@ -10,7 +10,8 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-
+host: ec2-34-254-241-66.eu-west-1.compute.amazonaws.com
+basePath: /v1
 # tags are used for organizing operations
 # basePath: "/v2"
 tags:
@@ -23,7 +24,7 @@ paths:
   /stockdata/{ticker}:
     get:
       summary: Returns DivGro data for the ticker
-      operationId: getStockData
+      #operationId: api.stockdata.getStockData
       description: Pass ticker type and get StockData. From DB if cached or via call outbound
       produces:
       - "application/xml"
@@ -31,7 +32,7 @@ paths:
       parameters:
       - name: ticker
         in: path
-        description: ID of pet to return
+        description: ticker symbol of stockdata to return
         required: true
         type: string
       responses:
@@ -145,7 +146,5 @@ definitions:
           type: number
           format: float
 # Added by API Auto Mocking Plugin
-host: virtserver.swaggerhub.com
-basePath: /Glumanda/DivExtractor2/1.0.0
 schemes:
  - https

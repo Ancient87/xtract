@@ -9,8 +9,12 @@ class StockDataTestCase(unittest.TestCase):
 
 
     def testRatios(self):
-        print("Testing ratios for ACN")
+        print("Gettings ratios for ACN")
         ratios = self.sd.getKeyRatios("ACN", force_refresh = False)
-
+        for ratio in ratios:
+            print(ratio)
+        ratios = self.sd.getKeyRatios("AMZN", force_refresh = False)
+        for ratio in ratios:
+            print(ratio)
 if __name__ == '__main__':
     unittest.main()
