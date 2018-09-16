@@ -52,6 +52,7 @@ class StockDataService:
 
         # Ger Valuation
         valuations = [val.dump() for val in self._getValuations(ticker)]
+        print(valuations)
 
         financial['ratios'] = ratios
         financial['valuations'] = valuations
@@ -75,10 +76,13 @@ class StockDataService:
         '''
 
         # Try the database
+        year_ref = datetime.today().year
+        year_object = datetime(year_ref, 12, 31)
 
-        year_ttm = datetime.today().year
-        query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker).filter(stockdatamodel.Valuation.year == year_ttm)
-        if not force_refresh and query.count == 1:
+        query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker).filter(stockdatamodel.Valuation.year == year_object)
+        if not force_refresh and query.count() == 1:
+            print("Gotcha")
+            query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker)
             return query.all()
 
         # Get the data
@@ -89,11 +93,13 @@ class StockDataService:
         if not os.path.isfile(val_file) or force_refresh:
             # Get the file from Morningstar
             rurl = "{val_base_url}&t={ticker}".format(val_base_url = VALUATION_BASE_URL, ticker = ticker)
-            print("Getting {0}".format(rurl))
-            valuations = requests.get("{val_base_url}&t={ticker}".format(val_base_url = VALUATION_BASE_URL, ticker = ticker))
+            #print("Getting {0}".format(rurl))
+            valuations = requests.get(rurl)
             # Write it to tmp
+            #print(valuations.status_code)
             if valuations.status_code == 200:
                 try:
+                    #print(valuations.text)
                     with open(val_file, 'w') as f:
                         f.write(valuations.text)
                 except Exception as e:
@@ -106,23 +112,29 @@ class StockDataService:
             with open(val_file, 'rb') as f:
                 soup = BeautifulSoup(f, 'html.parser')
                 #<th abbr="Price/Earnings for AAPL" class="row_lbl" scope="row">AAPL</th>
-                pe = soup.find(abbr="Price/Earnings for {ticker}".format(ticker = ticker))
+                pe = soup.find(abbr='Price/Earnings for {ticker}'.format(ticker = ticker))
                 #[<td class="row_data">15.9</td>, <td class="row_data">20.6</td>, <td class="row_data">18</td>, <td class="row_data">14.6</td>, <td class="row_data">12.1</td>, <td class="row_data">14.1</td>, <td class="row_data">17.1</td>, <td class="row_data">11.4</td>, <td class="row_data">13.9</td>, <td class="row_data">18.4</td>, <td class="row_data_0">20.2</td>]
-                pes = pe.findall('td')
-                year_ttm = date.today.year
+                pes = pe.parent.findAll('td')
+                year_ref = datetime.today().year
+                year_object = datetime(year_ref, 12, 31)
                 valuations = []
-                for index, td in enumerate(reversed(tds)):
+                for index, td in enumerate(reversed(pes)):
                     pe = float(list(td.children)[0])
-                    year = year_ttm - index
+                    year = datetime(year_ref-index, 12, 31)
+                    q = Valuation.query.filter(Valuation.year == year).filter(Valuation.ticker == ticker)
+                    if q.count() > 0:
+                        continue
+                    print("<year: {0}>".format(year))
                     valuation = stockdatamodel.Valuation(
                             ticker = ticker,
                             year = year,
-                            valuation = valuation
+                            valuation = pe
                     )
-                    valuations.add(valuation)
+                    print(valuation)
+                    valuations.append(valuation)
                     db_session.add(valuation)
+                    db_session.commit()
 
-                db.session.commit()
                 return valuations
         except Exception as e:
             traceback.print_exc()

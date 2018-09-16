@@ -10,7 +10,7 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-host: ec2-34-254-241-66.eu-west-1.compute.amazonaws.com
+#host: ec2-34-254-241-66.eu-west-1.compute.amazonaws.com
 basePath: /v1
 # tags are used for organizing operations
 # basePath: "/v2"
@@ -55,7 +55,7 @@ definitions:
         name:
           type: string
           example: Accenture Plc
-        dividendhistory:
+        dividend_history:
           type: array
           items:
             $ref: '#/definitions/DividendPayment'
@@ -65,7 +65,7 @@ definitions:
     Financial:
       type: object
       properties:
-        yield:
+        dividend_yield:
           type: number
           format: float
           example: 3.3.
@@ -77,8 +77,6 @@ definitions:
           type: array
           items:
             $ref: '#/definitions/Ratios'
-        health:
-          $ref: '#/definitions/Health'
         valuations:
           type: array
           items:
@@ -114,17 +112,12 @@ definitions:
         payout_ratio:
           type: number
           format: float
-        
-             
-    Health:
-      type: object
-      properties:
         current_ratio:
-          type: number
-          format: float
-        debt_equity:
-          type: number
-          format: float
+            type: number
+            format: float
+        debt_equity: 
+            type: number
+            format: float
     
     Valuation:
       type: object

@@ -62,7 +62,7 @@ class Valuation(Base):
     valuation = Column(Float)
 
     def __repr__(self):
-        return '<ticker: {ticker}, valuation: {valuation}, year:{year}, updated:{updated}>'.format(ticker = self.ticker, valuation = self.valuation, year = self.year)
+        return '<ticker: {ticker}, valuation: {valuation}, year:{year}>'.format(ticker = self.ticker, valuation = self.valuation, year = self.year)
 
     def dump(self):
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
