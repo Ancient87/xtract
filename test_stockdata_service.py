@@ -10,10 +10,10 @@ class StockDataTestCase(unittest.TestCase):
 
     def testRatios(self):
         print("Gettings ratios for ACN")
-        ratios = self.sd.getKeyRatios("ACN", force_refresh = False)
+        ratios = self.sd.getTicker("ACN", force_refresh = False)
         for ratio in ratios:
             print(ratio)
-        ratios = self.sd.getKeyRatios("AMZN", force_refresh = False)
+        ratios = self.sd.getTicker("AMZN", force_refresh = False)
         for ratio in ratios:
             print(ratio)
 if __name__ == '__main__':

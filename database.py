@@ -6,7 +6,7 @@ import os
 
 # Get this from ENVIRON VARS (this will be needed for k8s
 DB_USER = os.environ['DB_USER']
-DB_PASSWD = os.environ['DB_PASS']
+DB_PASSWD = os.environ['DB_PASSWD']
 DB_HOST = os.environ['DB_HOST']
 DB_NAME = os.environ['DB_NAME']
 
