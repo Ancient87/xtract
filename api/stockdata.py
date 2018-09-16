@@ -6,7 +6,7 @@ sd = stockdata_service.StockDataService()
 # Handler for getting a ticker
 def get(ticker):
     # Invoke the stock data extractor
-    return [f.dump() for f in sd.getKeyRatios(ticker, False)]
+    return sd.getTicker(ticker, False)
 
 
 def put(ticker):
