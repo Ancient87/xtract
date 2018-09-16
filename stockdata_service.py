@@ -119,7 +119,7 @@ class StockDataService:
                 year_object = datetime(year_ref, 12, 31)
                 valuations = []
                 for index, td in enumerate(reversed(pes)):
-                    pe = float(list(td.children)[0])
+                    pe = self._sanitise(list(td.children)[0])
                     year = datetime(year_ref-index, 12, 31)
                     q = Valuation.query.filter(Valuation.year == year).filter(Valuation.ticker == ticker)
                     if q.count() > 0:
@@ -131,11 +131,13 @@ class StockDataService:
                             valuation = pe
                     )
                     print(valuation)
-                    valuations.append(valuation)
                     db_session.add(valuation)
                     db_session.commit()
 
-                return valuations
+                query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker)
+                return query.all()
+
+
         except Exception as e:
             traceback.print_exc()
             return False
@@ -149,19 +151,56 @@ class StockDataService:
         """
         try:
             q = stockdatamodel.Financial.query.filter(stockdatamodel.Financial.ticker == ticker)
-            if not q.count() == 1:
-            	#YIELD
-	        #http://financials.morningstar.com/valuate/valuation-yield.action?&t=XNAS:AAPL&region=usa&culture=en-US&cur=
+            today = datetimte.today()
+            yesterday = datetime.today() - datetime.timedelta(days=1)
+            if not q.count() == 1 or force_refresh or (q.count() == 1 and q.first().updated < yesterday):
+            	#YIELD URL
+                yield_url = "https://finance.yahoo.com/quote/{ticker}/key-statistics/?guccounter=1".format(ticker = ticker)
 
-                f = Financial(
-                    ticker = ticker,
-                    dividend_yield = 9.99,
-                    beta = 0.99,
-                    updated = datetime.today()
-                )
-                db_session.add(f)
-                db_session.commit()
-                return f
+
+                yield_file = "tmp/{ticker}_yield".format(ticker = ticker)
+                if not os.path.isfile(val_file) or force_refresh:
+                    # Get the file from Morningstar
+                    yield_page = requests.get(yield_url)
+                    # Write it to tmp
+                    #print(valuations.status_code)
+                    if yield_page.status_code == 200:
+                        try:
+                            #print(valuations.text)
+                            with open(yield_file, 'w') as f:
+                                f.write(yield_page.text)
+                        except Exception as e:
+                            traceback.print_exc()
+                            return False
+
+                try:
+                    with open(yield_file, 'rb') as f:
+                        soup = BeautifulSoup(f, 'html.parser')
+                        #BETA = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="278">0.95</td>
+                        beta = self._sanitise(soup.find(data-reactid="278").children[0])
+                        #YIELD = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="421">2.54%</td>
+                        div_yield = self._sanitise(soup.find(data-reactid="421").children[0])
+
+                        if q.count() == 1:
+                            f = q.first()
+                            f.beta = beta
+                            f.dividend_yield = div_yield
+                            f.updated = today
+                            db_session.commit()
+                            return f
+
+                        else:
+                            f = Financial(
+                                ticker = ticker,
+                                dividend_yield = div_yield,
+                                beta = beta,
+                                updated = today)
+
+                            db_session.add(f)
+                            db_session.commit()
+                            return f
+                except Exception as e:
+                    traceback.print_exc()
             else:
                 return q.first()
         except Exception as e:
@@ -231,11 +270,15 @@ class StockDataService:
         return datetime.strptime(str(year), '%Y')
 
     def _sanitise(self, number):
-#        print("number {0}".format(number))
+#       print("number {0}".format(number))
         if number != number:
 #            print("{0} is NaN".format(number))
             return 0.0
-        return float(number)
+        try:
+            return float(number)
+        except Exception as e:
+            traceback.print_exc()
+            return 0.0
 
     def _refreshRatiosDB(self, ticker):
         """
