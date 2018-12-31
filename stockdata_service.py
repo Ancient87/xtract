@@ -1,6 +1,5 @@
 # Module that deals with data access to the Morningstar and TBC APIs to create information for the Divgro calculations
 
-
 import pickle
 import traceback
 import good_morning as gm
@@ -8,7 +7,7 @@ import pymysql
 from database import db_session
 import stockdatamodel
 from stockdatamodel import *
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import os
 import pandas as pd
 import requests
@@ -151,8 +150,8 @@ class StockDataService:
         """
         try:
             q = stockdatamodel.Financial.query.filter(stockdatamodel.Financial.ticker == ticker)
-            today = datetimte.today()
-            yesterday = datetime.today() - datetime.timedelta(days=1)
+            today = datetime.today()
+            yesterday = datetime.today() - timedelta(days=1)
             if not q.count() == 1 or force_refresh or (q.count() == 1 and q.first().updated < yesterday):
             	#YIELD URL
                 yield_url = "https://finance.yahoo.com/quote/{ticker}/key-statistics/?guccounter=1".format(ticker = ticker)
@@ -177,9 +176,10 @@ class StockDataService:
                     with open(yield_file, 'rb') as f:
                         soup = BeautifulSoup(f, 'html.parser')
                         #BETA = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="278">0.95</td>
-                        beta = self._sanitise(soup.find(data-reactid="278").children[0])
+                        beta = self._sanitise(soup.select("td[data-reactid='278']").children[0])
                         #YIELD = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="421">2.54%</td>
-                        div_yield = self._sanitise(soup.find(data-reactid="421").children[0])
+                        div_yield = beta
+			#div_yield = self._sanitise(soup.find(data-reactid="421").children[0])
 
                         if q.count() == 1:
                             f = q.first()

@@ -1,0 +1,244 @@
+
+	<script language="javascript">
+	var flotObj = null;
+	var option =  { xaxis: { mode:null,showLabel:true,
+						 ticks:[[1,""],[2,"2008"],[3,""],[4,"2009"],[5,""],[6,"2010"],[7,""],[8,"2011"],[9,""],[10,"2012"],[11,""],[12,"2013"],[13,""],[14,"2014"],[15,""],[16,"2015"],[17,""],[18,"2016"],[19,""],[20,"2017"],
+						 [21,""],[22,"TTM"]],
+                         tickFormatter:null, labelHeight:20, backgroundColor:"#ffffff", offset:2, interval:2 },       
+				yaxis: {showLabel:true, labelWidth:192,labelHeight:-2, min:0, max:40, ticks:[[0, "History"],[10,$.formatValue("10.0",{format:"#,###.0",locale:"us"})],[20,$.formatValue("20.0",{format:"#,###.0",locale:"us"})], [30,$.formatValue("30.0",{format:"#,###.0",locale:"us"})], [40,$.formatValue("40.0",{format:"#,###.0",locale:"us"})]]},        
+                bars:{show:true, maxBarWidth:20, offset:2.5 },
+                grid: { hoverable: true, clickable: true, color:"#000000" }                      
+              };
+    var dataOffset = [
+    					[1, 20],[2, 8],		
+						[3, 20],[4, 8],		
+						[5, 20],[6, 8],		
+						[7, 20],[8, 8],		
+						[9, 20],[10, 8],
+	   					[11, 20],[12, 8],
+	   					[13, 20]
+	   					,[14, 8],
+						[15, 20],[16, 8],
+						[17, 20],[18, 8],
+						[19, 20],[20, 8],
+						[21, 20],[22, 8]
+					 ];
+
+
+	var data = [{data:[
+						[1,16.5,"#26356c"],[2,10.9,"#f56119"],
+[3,16.8,"#26356c"],[4,18.6,"#f56119"],
+[5,21.6,"#26356c"],[6,15.5,"#f56119"],
+[7,25.8,"#26356c"],[8,13.7,"#f56119"],
+[9,23.3,"#26356c"],[10,15,"#f56119"],
+[11,35.5,"#26356c"],[12,18.6,"#f56119"],
+[13,31.2,"#26356c"],[14,18.6,"#f56119"],
+[15,28.6,"#26356c"],[16,19,"#f56119"],
+[17,24,"#26356c"],[18,20.3,"#f56119"],
+[19,22.2,"#26356c"],[20,22.9,"#f56119"],
+					    [21,22.7,"#26356c"],
+						[22,20.7,"#f56119"],
+					    [23,0]
+					   ]
+				 }
+				];
+	</script>
+	<div class="tab_content tab_override" id="price-earnings" style="display:block;">
+    <div class="lgnd_2">
+        <div><span class="cdot1"></span><span class="data">TSCO</span></div>
+        <div><span class="cdot2"></span><span class="data">S&P 500</span></div>
+    </div>
+
+   <div style="width:955px; height:191px; font-size: 10px; font-family: verdana; position: relative; float: left;" id="barChart"></div>
+        <table class="r_table3" id="valuation_history_table" cellspacing="0" cellpadding="0" border="0">
+        	<colgroup>
+            	<col class="col_lbl" ></col>
+                <col span="5" class="col_data1" />
+            	<col class="col_data2" />
+                <col span="4" class="col_data1"/>
+                <col class="col_data3" />
+            </colgroup>
+            <tbody>
+                <tr>
+                	<td class="row_lbl">Price/Earnings</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+		<td class="row_data">&nbsp;</td>
+                    <td class="row_data_0">&nbsp;</td>
+                </tr>
+                <tr>
+                	<th scope="row" abbr="Price/Earnings for TSCO" class="row_lbl">TSCO</th>
+                	<td class="row_data">16.5</td>
+                	<td class="row_data">16.8</td>
+                	<td class="row_data">21.6</td>
+                	<td class="row_data">25.8</td>
+                	<td class="row_data">23.3</td>
+                	<td class="row_data">35.5</td>
+                	<td class="row_data">31.2</td>
+                	<td class="row_data">28.6</td>
+                	<td class="row_data">24</td>
+                	<td class="row_data">22.2</td>
+                    <td class="row_data_0">22.7</td>
+                </tr>
+                <tr>
+                	<th scope="row" abbr="Price/Earnings for S&P 500" class="row_lbl">S&P 500</th>
+                	<td class="row_data">10.9</td>
+                	<td class="row_data">18.6</td>
+                	<td class="row_data">15.5</td>
+                	<td class="row_data">13.7</td>
+                	<td class="row_data">15</td>
+                	<td class="row_data">18.6</td>
+                	<td class="row_data">18.6</td>
+                	<td class="row_data">19</td>
+                	<td class="row_data">20.3</td>
+                	<td class="row_data">22.9</td>
+                    <td class="row_data_0">20.7</td>
+                </tr>
+                <tr class="gry">
+                	<td class="row_lbl divide">Price/Book</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+                    <td class="row_data_0 divide">&nbsp;</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Book for TSCO" class="row_lbl">TSCO</th>
+                	<td class="row_data">2.1</td>
+                	<td class="row_data">2.6</td>
+                	<td class="row_data">3.8</td>
+                	<td class="row_data">5.3</td>
+                	<td class="row_data">6</td>
+                	<td class="row_data">9.1</td>
+                	<td class="row_data">8.7</td>
+                	<td class="row_data">8.6</td>
+                	<td class="row_data">6.8</td>
+                	<td class="row_data">6.8</td>
+                    <td class="row_data_0">7.6</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Book for S&P 500" class="row_lbl">S&P 500</th>
+                	<td class="row_data">1.7</td>
+                	<td class="row_data">2.2</td>
+                	<td class="row_data">2.2</td>
+                	<td class="row_data">2</td>
+                	<td class="row_data">2.1</td>
+                	<td class="row_data">2.6</td>
+                	<td class="row_data">2.7</td>
+                	<td class="row_data">2.7</td>
+                	<td class="row_data">2.8</td>
+                	<td class="row_data">3.2</td>
+                    <td class="row_data_0">3.3</td>
+                </tr>
+                <tr class="divide gry">
+                	<td class="row_lbl divide">Price/Sales</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+                    <td class="row_data_0 divide">&nbsp;</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Sales for TSCO" class="row_lbl">TSCO</th>
+                	<td class="row_data">0.5</td>
+                	<td class="row_data">0.6</td>
+                	<td class="row_data">1</td>
+                	<td class="row_data">1.3</td>
+                	<td class="row_data">1.4</td>
+                	<td class="row_data">2.2</td>
+                	<td class="row_data">2</td>
+                	<td class="row_data">1.9</td>
+                	<td class="row_data">1.6</td>
+                	<td class="row_data">1.3</td>
+                    <td class="row_data_0">1.4</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Sales for S&P 500" class="row_lbl">S&P 500</th>
+                	<td class="row_data">0.9</td>
+                	<td class="row_data">1.2</td>
+                	<td class="row_data">1.3</td>
+                	<td class="row_data">1.2</td>
+                	<td class="row_data">1.3</td>
+                	<td class="row_data">1.7</td>
+                	<td class="row_data">1.8</td>
+                	<td class="row_data">1.8</td>
+                	<td class="row_data">2</td>
+                	<td class="row_data">2.2</td>
+                    <td class="row_data_0">2.3</td>
+                </tr>
+                <tr class="gry">
+                	<td class="row_lbl divide">Price/Cash Flow</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+		<td class="row_data divide">&nbsp;</td>
+                    <td class="row_data_0 divide">&nbsp;</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Cash Flow for TSCO" class="row_lbl">TSCO</th>
+                	<td class="row_data">6.2</td>
+                	<td class="row_data">9</td>
+                	<td class="row_data">16.3</td>
+                	<td class="row_data">21.8</td>
+                	<td class="row_data">17</td>
+                	<td class="row_data">34.4</td>
+                	<td class="row_data">27.5</td>
+                	<td class="row_data">24.2</td>
+                	<td class="row_data">22.2</td>
+                	<td class="row_data">13.9</td>
+                    <td class="row_data_0">16.1</td>
+                </tr>
+                <tr class="gry">
+                	<th scope="row" abbr="Price/Cash Flow for S&P 500" class="row_lbl">S&P 500</th>
+                	<td class="row_data">6.8</td>
+                	<td class="row_data">9.1</td>
+                	<td class="row_data">9.3</td>
+                	<td class="row_data">8.5</td>
+                	<td class="row_data">9.2</td>
+                	<td class="row_data">11.2</td>
+                	<td class="row_data">11.5</td>
+                	<td class="row_data">11.5</td>
+                	<td class="row_data">12.4</td>
+                	<td class="row_data">14.3</td>
+                    <td class="row_data_0">14</td>
+                </tr>
+                </tbody>        
+        </table>
+		</div>
+
+<script language="javascript">
+
+draw("barChart",[955,191]);
+i18_data("#valuation_history_table tbody tr td");
+
+var optionHistory = option;
+var dataOffsetHistory = dataOffset;
+var dataHistory = data;
+</script>	
+
+
