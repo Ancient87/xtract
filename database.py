@@ -17,6 +17,7 @@ DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format( \
 	host = DB_HOST, \
 	db = DB_NAME, \
 )
+print(DB_URL)
 
 engine = create_engine(DB_URL, convert_unicode=True)
 db_session = scoped_session(sessionmaker(autocommit=False,

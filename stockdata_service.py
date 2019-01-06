@@ -1,5 +1,7 @@
 # Module that deals with data access to the Morningstar and TBC APIs to create information for the Divgro calculations
 
+from flask import jsonify
+import json
 import pickle
 import traceback
 import good_morning as gm
@@ -43,21 +45,23 @@ class StockDataService:
         """
 
         # Build financials
-
+        print("Request for {0}".format(ticker))
+        #financial = {}
         financial = self._getFinancial(ticker).dump()
 
         # Get Key Ratios (incl health)
         ratios = [val.dump() for val in self._getKeyRatios(ticker)]
 
-        # Ger Valuation
+        # Get Valuation
         valuations = [val.dump() for val in self._getValuations(ticker)]
         print(valuations)
 
         financial['ratios'] = ratios
         financial['valuations'] = valuations
 
-        # Get Dividend history
+        # TODO: Get Dividend history
 
+        # Assemble stock data
         stockdata = {
                 'symbol': ticker,
                 'name': ticker,
@@ -65,7 +69,7 @@ class StockDataService:
                 'dividend_history': []
         }
 
-        return stockdata
+        return jsonify(stockdata)
 
     def _getValuations(self, ticker = "ACN", force_refresh = False):
         '''
@@ -150,66 +154,65 @@ class StockDataService:
         """
         try:
             q = stockdatamodel.Financial.query.filter(stockdatamodel.Financial.ticker == ticker)
+            print("Query for {0} returned {1} results".format(ticker, q.count()))
             today = datetime.today()
             yesterday = datetime.today() - timedelta(days=1)
-            if not q.count() == 1 or force_refresh or (q.count() == 1 and q.first().updated < yesterday):
-            	#YIELD URL
-                yield_url = "https://finance.yahoo.com/quote/{ticker}/key-statistics/?guccounter=1".format(ticker = ticker)
+            #yesterday = datetime.combine(yesterday, datetime.min.time())
+            if not q.count() == 1 or force_refresh or (q.count() == 1 and q.first().updated < yesterday.date()):
 
-
-                yield_file = "tmp/{ticker}_yield".format(ticker = ticker)
-                if not os.path.isfile(val_file) or force_refresh:
-                    # Get the file from Morningstar
-                    yield_page = requests.get(yield_url)
-                    # Write it to tmp
-                    #print(valuations.status_code)
-                    if yield_page.status_code == 200:
+                # Get data from the API
+                stats_url = "https://api.iextrading.com/1.0/stock/{0}/stats".format(ticker)
+                stats_file = "tmp/{ticker}_stats".format(ticker = ticker)
+                print(stats_file)
+                # Get data if it doesn't exist or we are refreshing
+                if not os.path.isfile(stats_file) or force_refresh:
+                    print("Requesting {0}".format(stats_url))
+                    stats = requests.get(stats_url)
+                    if stats.status_code == 200:
+                        print("Got file from api")
                         try:
-                            #print(valuations.text)
-                            with open(yield_file, 'w') as f:
-                                f.write(yield_page.text)
+                            with open(stats_file, 'w') as f:
+                                    f.write(stats.text)
                         except Exception as e:
-                            traceback.print_exc()
-                            return False
+                                traceback.print_exc()
+                    else:
+                        print("Failed to get 200 response {0}".format(stats))
 
                 try:
-                    with open(yield_file, 'rb') as f:
-                        soup = BeautifulSoup(f, 'html.parser')
-                        #BETA = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="278">0.95</td>
-                        beta = self._sanitise(soup.select("td[data-reactid='278']").children[0])
-                        #YIELD = <td class="Fz(s) Fw(500) Ta(end)" data-reactid="421">2.54%</td>
-                        div_yield = beta
-			#div_yield = self._sanitise(soup.find(data-reactid="421").children[0])
-
+                    with open(stats_file, 'rb') as f:
+                        print(f)
+                        data = json.load(f)
+                        div_yield = data["dividendYield"]
+                        beta = data["beta"]
+                        company_name = data["companyName"]
                         if q.count() == 1:
+                            print("Entry for {0} already exists - refreshing".format(ticker))
                             f = q.first()
                             f.beta = beta
                             f.dividend_yield = div_yield
+                            f.company_name = company_name
                             f.updated = today
-                            db_session.commit()
-                            return f
 
                         else:
                             f = Financial(
                                 ticker = ticker,
                                 dividend_yield = div_yield,
                                 beta = beta,
-                                updated = today)
+                                updated = today,
+                                company_name = company_name
+                                )
 
                             db_session.add(f)
-                            db_session.commit()
                             return f
+                    db_session.commit()
+                    return f
                 except Exception as e:
                     traceback.print_exc()
             else:
                 return q.first()
+
         except Exception as e:
             traceback.print_exc()
-            return False
-
-
-
-
     def _getKeyRatios(self, ticker = "ACN", force_refresh = False):
         """
         This function goes and pulls the financials from the DB if it exists or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec

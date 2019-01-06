@@ -7,6 +7,7 @@ class Financial(Base):
     dividend_yield = Column(Float)
     beta = Column(Float)
     updated = Column(Date)
+    company_name = Column(String)
 
     def __repr__(self):
         return '<ticket: {ticker}, yield: {div_yield}, beta:{beta}, updated:{updated}>'.format(ticker = self.ticker, div_yield = self.dividend_yield, beta = self.beta, updated = self.updated)

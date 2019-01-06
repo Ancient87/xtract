@@ -1,2 +1,10 @@
 *.pkl
+*.pyc
 venv*
+manage.py
+xtract_db_repo
+tmp
+__pycache__/
+.gitignore
+gitignore
+__pycache__/

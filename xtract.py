@@ -22,7 +22,7 @@ def home():
     """
     Hello world @ 5000
     """
-    return api.stockdata.get('acn')
+    return api.stockdata.get('AMZN')
     return render_template('home.html')
 
 '''
