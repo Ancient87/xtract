@@ -68,4 +68,16 @@ class Valuation(Base):
     def dump(self):
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
 
+class Dividend(Base):
+    __tablename__ = 'dividends'
+    ticker = Column(String(10), ForeignKey("financials.ticker"), primary_key=True)
+    period = Column(Date, primary_key=True)
+    dividend = Column(Float)
+
+    def __repr__(self):
+        return '<ticker: {ticker}, period: {period}, dividend: {dividend}>'.format(ticker = self.ticker, period = self.period, eps = self.dividend)
+
+    def dump(self):
+        return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
+
 
