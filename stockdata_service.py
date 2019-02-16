@@ -14,8 +14,7 @@ import os
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-#import stockdatamodel.Financials
-#import stockdatamodel.Health
+import yahoo_reader.yahoo_reader
 
 class StockDataService:
 
@@ -60,13 +59,14 @@ class StockDataService:
         financial['valuations'] = valuations
 
         # TODO: Get Dividend history
+        dividend_history = [val.dump() for val in self._getDividends(ticker)]
 
         # Assemble stock data
         stockdata = {
                 'symbol': ticker,
                 'name': ticker,
                 'financials': financial,
-                'dividend_history': []
+                'dividend_history': dividend_history
         }
 
         return jsonify(stockdata)
@@ -360,7 +360,7 @@ class StockDataService:
 
             # Deal with health and write it to the DB
 
-    def getDividends(self, ticker, force_refresh=False):
+    def _getDividends(self, ticker, force_refresh=False):
         ''' Retrieves the dividend history for the given ticker
 
         If we already have it and it's in date (not older than a month) return that. Otherwise we
@@ -375,20 +375,18 @@ class StockDataService:
         try:
             # See if they exist for this year
             today = datetime.today()
-            datey = datetime(today.year)
-            datem = datetime (today.year, today.month)
+            datey = today.year
 
             # Check if we have any dividends for this year
             # TODO: Optimization to account for checked already
             dividend_history_query = stockdatamodel.Dividend.query.filter(stockdatamodel.Dividend.ticker == ticker).filter(stockdatamodel.Dividend.period >= datey)
 
             # Refresh if need be and return
-            if force_refresh == True or dividend_history_query.count() < 1:1
-                dividends = self._refreshDividendsDB(ticker, force_refresh)
-
+            if force_refresh == True or dividend_history_query.count() < 1:
+                self._refreshDividendsDB(ticker, force_refresh)
             # Pull them and return
-            dividends = self._getDividendsDB(ticker)
-            return dividends
+            dividend_history_query = stockdatamodel.Dividend.query.filter(stockdatamodel.Dividend.ticker == ticker)
+            return dividend_history_query.all()
 
             # If they don't exist error
         except Exception as e:
@@ -396,65 +394,29 @@ class StockDataService:
             return 400, 'Ratios not found for {0}'.format(ticker)
 
 
-    def refreshDividendsDB(ticker, force_refresh = False):
-    ''' Get the dividends from Yahoo and update the DB
+    def _refreshDividendsDB(self, ticker, force_refresh = False):
 
-    Source for data is https://finance.yahoo.com/quote/AFL/history?period1=0&period2=9999999999&interval=div|split&filter=div&frequency=1mo&guccounter=1
+        # 1 Use yahoo reader to scrape
+        dividends = yahoo_reader.yahoo_reader.get_dividend(ticker, force_refresh)
 
-    self -- this class
-    ticker -- the ticker symbol of the stock
-    force_refresh -- Ignore anything prefetched
-    '''
+        res = []
+        # 2 Add to TB and return
+        for index, row in dividends.iterrows():
 
-    # 1 Construct query string
-
-    dividend_query = "https://finance.yahoo.com/quote/{ticker}/history?period1=0&period2=9999999999&interval=div|split&filter=div&frequency=1mo&guccounter=1".format(ticker = ticker)
-
-    # 2 Grab the history from yahoo
-    dividend_history = requests.get(dividend_query)
-    # Write it to tmp
-    div_file = "{ticker}_div".format(ticker = ticker)
-    print(dividend_history.status_code)
-    if dividend_history.status_code == 200:
-        try:
-            print(dividend_history.text)
-                with open(div_file, 'w') as f:
-                        f.write(dividend_history.text)
-                except Exception as e:
-                    traceback.print_exc()
-                    return False
-
-        # Parse the XML soup
-        try:
-            with open(div_file, 'rb') as f:
-                soup = BeautifulSoup(f, 'html.parser')
-
-# <table class="W(100%) M(0)" data-test="historical-prices" data-reactid="33"><thead data-reactid="34"><tr class="C($c-fuji-grey-j) Fz(xs) Ta(end)" data-reactid="35"><th class="Ta(start) W(40%) Fw(400) Py(6px)" data-reactid="36"><span data-reactid="37">Date</span></th><th class="Ta(start) Fw(400) Py(6px)" data-reactid="38"><span data-reactid="39">Dividends</span></th></tr></thead><tbody data-reactid="40"><tr class="BdT Bdc($c-fuji-grey-c) Ta(end) Fz(s) Whs(nw)" data-reactid="41"><td class="Py(10px) Ta(start) Pend(10px)" data-reactid="42"><span data-reactid="43">Nov 20, 2018</span></td><td class="Ta(c) Py(10px) Pstart(10px)" colspan="6" data-reactid="44"><strong data-reactid="45">0.26</strong><!-- react-text: 46 --> <!-- /react-text --><span data-reactid="47">Dividend</span></td></tr><tr class="BdT Bdc($c-fuji-grey-c) Ta(end) Fz(s) Whs(nw)" data-reactid="48"><td class="Py(10px) Ta(start) Pend(10px)" data-reactid="49"><span data-reactid="50">Aug 21, 2018</span></td><td class="Ta(c) Py(10px) Pstart(10px)" colspan="6" data-reactid="51"><strong data-reactid="52">0.26</strong><!-- react-text: 53 --> <!-- /react-text --><span data-reactid="54">Dividend</span></td></tr><tr class="BdT Bdc($c-fuji-grey-c) Ta(end) Fz(s) Whs(nw)" data-reactid="55"><td class="Py(10px) Ta(start) Pend(10px)" data-reactid="56"><span data-reactid="57">May 22, 2018</span></td><td class="Ta(c) Py(10px) Pstart(10px)" colspan="6" data-reactid="58"><strong data-reactid="59">0.26</strong><!-- react-text: 60 --> <!-- /react-text --><span data-reactid="61">Dividend</span></td></tr><tr class="BdT Bdc($c-fuji-grey-c) Ta(end) Fz(s) Whs(nw)" data-reactid="62"><td class="Py(10px) Ta(start) Pend(10px)" data-reactid="63"><span data-reactid="64">Feb 20, 2018</span></td><td class="Ta(c) Py(10px) Pstart(10px)" colspan="6" data-reactid="65"><strong data-reactid="66">0.52</strong><!-- react-text: 67 --> <!-- /react-text --><span data-reactid="68">Dividend</span></td></tr>
-
-                pe = soup.find(abbr='Price/Earnings for {ticker}'.format(ticker = ticker))
-                #[<td class="row_data">15.9</td>, <td class="row_data">20.6</td>, <td class="row_data">18</td>, <td class="row_data">14.6</td>, <td class="row_data">12.1</td>, <td class="row_data">14.1</td>, <td class="row_data">17.1</td>, <td class="row_data">11.4</td>, <td class="row_data">13.9</td>, <td class="row_data">18.4</td>, <td class="row_data_0">20.2</td>]
-                pes = pe.parent.findAll('td')
-                year_ref = datetime.today().year
-                year_object = datetime(year_ref, 12, 31)
-                valuations = []
-                for index, td in enumerate(reversed(pes)):
-                    pe = self._sanitise(list(td.children)[0])
-                    year = datetime(year_ref-index, 12, 31)
-                    q = Valuation.query.filter(Valuation.year == year).filter(Valuation.ticker == ticker)
-                    if q.count() > 0:
-                        continue
-                    print("<year: {0}>".format(year))
-                    valuation = stockdatamodel.Valuation(
-                            ticker = ticker,
-                            year = year,
-                            valuation = pe
+            div = Dividend(
+                        ticker = ticker,
+                        period = row[0],
+                        dividend = row[1],
                     )
-                    print(valuation)
-                    db_session.add(valuation)
-                    db_session.commit()
+            try:
+                db_session.add(div)
+                res.append(div)
 
-                query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker)
-                return query.all()
+            except Exception as e:
+                traceback.print_exc()
 
-
-
+        try:
+            db_session.commit()
+            return res
+        except Exception as e:
+            traceback.print_exc()

@@ -11,7 +11,8 @@ import pandas as pd
 import os
 import time
 import requests
-
+import dateutil.parser
+import traceback
 
 def get_dividend(ticker, force_refresh = False):
 
@@ -119,23 +120,36 @@ def get_dividend(ticker, force_refresh = False):
             #print("ALL DIVIDENDS")
 
             data = []
+            labels = ["Date", "Dividend"]
             # parse rows and build Pandas
             # <tr class="BdT Bdc($c-fuji-grey-c) Ta(end) Fz(s) Whs(nw)" data-reactid="48"><td class="Py(10px) Ta(start) Pend(10px)" data-reactid="49"><span data-reactid="50">Nov 21, 2018</span></td><td class="Ta(c) Py(10px) Pstart(10px)" colspan="6" data-reactid="51"><strong data-reactid="52">1.36</strong><!-- react-text: 53 --> <!-- /react-text --><span data-reactid="54">Dividend</span></td></tr>
             rows = rows.findAll("tr", {"class": "BdT"})
-            for row in rows:
-                #print("ROW {0}".format(row))
-                print("ROW #############")
-                # Date
-                date = row.find("span")
-                date_text = date.renderContents().strip()
 
-                # Dividend
-                dividend = row.find("strong")
-                dividend_text = dividend.renderContents().strip()
-                print("Date: {0}, Dividend {1}".format(date_text, dividend_text))
-                print("EoR ######")
+            rows = rows[:-1]
+            for row in rows:
+                try:
+                    #print("ROW {0}".format(row))
+                    # Date
+                    date = row.find("span")
+                    date_text = date.renderContents().strip()
+                    #date_text = date_text.lower().replace("rd", "").replace("nd", "").replace("st", "")
+                    date_text = dateutil.parser.parse(date_text).date()
+                    # Dividend
+                    dividend = row.find("strong")
+                    dividend_text = dividend.renderContents().strip()
+                    dividend_text = float(dividend_text)
+                    print("Date: {0}, Dividend {1}".format(date_text, dividend_text))
+                    data.append((date_text, dividend_text))
+                except Exception as e:
+                    print("Failed to parse {0}".format(row))
+                    traceback.print_exc()
+
+            div_frame = pd.DataFrame.from_records(data, columns=labels)
+            return div_frame
     except Exception as e:
         print(e)
 
+
 if __name__ == "__main__":
-    get_dividend("AFL")
+    frame = get_dividend("AFL")
+    print(frame)
