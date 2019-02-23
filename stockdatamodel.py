@@ -19,6 +19,7 @@ class Ratio(Base):
     __tablename__ = 'ratios'
     ticker = Column(String(10), ForeignKey("financials.ticker"), primary_key=True)
     period = Column(Date, primary_key=True)
+    revenue = Column(Float)
     gross_margin = Column(Float)
     operating_income = Column(Float)
     operating_margin = Column(Float)

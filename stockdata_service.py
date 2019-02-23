@@ -308,6 +308,7 @@ class StockDataService:
 
                 series = financials[year]
                 period = self._datefromperiod(year)
+                revenue = self._sanitise(series[0])
                 gross_margin = self._sanitise(series[1])
                 operating_income = self._sanitise(series[2])
                 operating_margin = self._sanitise(series[3])
@@ -335,6 +336,7 @@ class StockDataService:
                     f  = stockdatamodel.Ratio(
                             ticker = ticker,
                             period = period,
+                            revenue = revenue,
                             gross_margin = gross_margin,
                             operating_income = operating_income,
                             operating_margin = operating_margin,
