@@ -25,7 +25,7 @@ paths:
     get:
       summary: Returns DivGro data for the ticker
       #operationId: api.stockdata.getStockData
-      description: Pass ticker type and get StockData. From DB if cached or via call outbound
+      description: Pass ticker type and get StockData. From DB if cached or via call outbound. Can be used to force a refresh
       produces:
       - "application/xml"
       - "application/json"
@@ -35,13 +35,37 @@ paths:
         description: ticker symbol of stockdata to return
         required: true
         type: string
+      - name: force_refresh
+        in: query
+        description: Force refresh 
+        type: boolean
+        default: false
       responses:
         200:
           description: stockdata matching ticker
           schema:
             $ref: '#/definitions/StockData'
         400:
-          description: bad input parameter
+          description: Haven't got this one
+  /stockinfo/{ticker}:
+    get:
+      summary: Key data of the stock without details - useful to get the updated field and know whether to force refresh
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - name: ticker
+        description: ticker symbol of stock we want
+        in: path
+        required: true
+        type: string
+      responses:
+        200:
+          description: stockdata currency
+          schema:
+            $ref: '#/definitions/StockData'
+        400:
+          description: Haven't got this one
 definitions:
     StockData:
       type: object

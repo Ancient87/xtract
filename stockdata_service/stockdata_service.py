@@ -45,6 +45,29 @@ class StockDataService:
         #Return as per API contract
         return {}
 
+    def getInfo(self, ticker = "ACN"):
+        logger.debug("Info request for {ticker}".format(ticker = ticker))
+
+        financial = None
+        try:
+            financial = self._getFinancial(ticker, dirty=True).dump()
+        except Exception as e:
+            logger.exception("Failed to retrieve data for {ticker}".format(ticker = ticker))
+            return "Not found", 404
+
+        financial['ratios'] = []
+        financial['valuations'] = []
+
+        stockdata = {
+                'symbol': ticker,
+                'name': ticker,
+                'financials': financial,
+                'dividend_history': [],
+        }
+
+        return jsonify(stockdata)
+
+
     def getTicker(self, ticker = "ACN", force_refresh = False):
         """
         This function goes and pulls the financials from the DBs if they exist or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
@@ -52,22 +75,31 @@ class StockDataService:
         """
 
         # Build financials
-        logger.debug("Request for {0}".format(ticker))
+        logger.debug("Request for {0} forcing_refresh {1}".format(ticker, force_refresh))
         #financial = {}
-        financial = self._getFinancial(ticker).dump()
+
+        financial = None
+        stockdate = None
+        ratios = None
+
+        try:
+            financial = self._getFinancial(ticker, force_refresh).dump()
+        except Exception as e:
+            logger.exception("Failed to retrieve data for {ticker}".format(ticker = ticker))
+            return "Not found", 404
 
         # Get Key Ratios (incl health)
-        ratios = [val.dump() for val in self._getKeyRatios(ticker)]
+        ratios = [val.dump() for val in self._getKeyRatios(ticker, force_refresh)]
 
         # Get Valuation
-        valuations = [val.dump() for val in self._getValuations(ticker)]
+        valuations = [val.dump() for val in self._getValuations(ticker, force_refresh)]
         logger.debug(valuations)
 
         financial['ratios'] = ratios
         financial['valuations'] = valuations
 
         # TODO: Get Dividend history
-        dividend_history = [val.dump() for val in self._getDividends(ticker)]
+        dividend_history = [val.dump() for val in self._getDividends(ticker, force_refresh)]
 
         # Assemble stock data
         stockdata = {
@@ -154,7 +186,7 @@ class StockDataService:
             return False
 
 
-    def _getFinancial(self, ticker = "ACN", force_refresh = False):
+    def _getFinancial(self, ticker = "ACN", force_refresh = False, dirty = False):
         """
         This function pulls the financial from the DB
         TODO: check for freshness
@@ -166,14 +198,14 @@ class StockDataService:
             today = datetime.today()
             yesterday = datetime.today() - timedelta(days=1)
             #yesterday = datetime.combine(yesterday, datetime.min.time())
-            if (not q.count() == 1) or force_refresh or (q.count() == 1 and q.first().updated < yesterday.date()):
+            if force_refresh or (not q.count() == 1) or (q.count() == 1 and (not q.first().updated == None) and (q.first().updated < yesterday.date())):
                 logger.debug("Retrieving financials for {0} q.count {1}".format(ticker, q.count()))
                 # Get data from the API
                 stats_url = "https://api.iextrading.com/1.0/stock/{0}/stats".format(ticker)
                 stats_file = "tmp/{ticker}_stats".format(ticker = ticker)
                 logger.debug(stats_file)
                 # Get data if it doesn't exist or we are refreshing
-                if not os.path.isfile(stats_file) or force_refresh:
+                if not (os.path.isfile(stats_file)) or force_refresh:
                     logger.debug("Requesting {0}".format(stats_url))
                     stats = requests.get(stats_url)
                     if stats.status_code == 200:
@@ -187,6 +219,7 @@ class StockDataService:
                         logger.debug("Failed to get 200 response {0}".format(stats))
 
                 try:
+                    f = None
                     with open(stats_file, 'rb') as f:
                         logger.debug(f)
                         data = json.load(f)
@@ -202,6 +235,10 @@ class StockDataService:
                             f.updated = today
 
                         else:
+                            # Indicate that this hasn't ever been fully updated
+                            if dirty:
+                                logger.debug("Dirty read - not updating updated")
+                                today = None
                             f = Financial(
                                 ticker = ticker,
                                 dividend_yield = div_yield,
@@ -209,10 +246,10 @@ class StockDataService:
                                 updated = today,
                                 company_name = company_name
                                 )
-
+                            logger.debug("Added Financials for {ticker}".format(ticker = ticker))
                             db_session.add(f)
+                            db_session.commit()
                             return f
-                    db_session.commit()
                     return f
                 except Exception as e:
                     logger.exception(e)
@@ -237,7 +274,7 @@ class StockDataService:
 
             # Refresh if need be
             if key_ratios_query.count() < 1 or force_refresh == True:
-                self._refreshRatiosDB(ticker)
+                self._refreshRatiosDB(ticker, force_refresh)
 
             # Now look them up
             key_ratios = self._getRatiosDB(ticker)
@@ -264,6 +301,7 @@ class StockDataService:
         fname = "tmp/{ticker}_pickle.pkl".format(ticker = ticker)
         with open(fname, 'wb') as f:
             pickle.dump(frames, f)
+        return frames
         #frames.to_pickle("./{ticker}_pickle.pkl".format(ticker))
 
     def restore_frames(self, ticker):
@@ -292,19 +330,18 @@ class StockDataService:
             logger.exception(e)
             return 0.0
 
-    def _refreshRatiosDB(self, ticker):
+    def _refreshRatiosDB(self, ticker, force_refresh):
         """
         Uses goodmorning to populate ratios
         """
+        frames = None
         frames = self.restore_frames(ticker)
-        if frames:
+        if frames and not force_refresh:
             logger.debug("Found frames in pickle {ticker}".format(ticker = ticker))
         else:
-            pass
             logger.debug("Refreshing from GoodMorning {ticker}".format(ticker = ticker))
             kr = gm.KeyRatiosDownloader()
             frames = kr.download(ticker)
-            self.save_frames_temp(frames, ticker)
 
         if frames:
             # Deal with the key ratios and write them to the DB
@@ -338,7 +375,7 @@ class StockDataService:
                 debt_equity = self._sanitise(h_s["Debt/Equity"])
 
                 logger.debug("Found and starting to build {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
-               #Check if it exists
+                #Check if it exists
                 query = stockdatamodel.Ratio.query.filter(stockdatamodel.Ratio.ticker == ticker).filter(stockdatamodel.Ratio.period == period)
                 if query.count() < 1:
                     logger.debug("Don't have this yet {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
@@ -366,6 +403,27 @@ class StockDataService:
                 else:
                     f = query.first()
                     logger.debug(f)
+                    # If we need to force refresh update it
+                    if force_refresh:
+                        logger.debug("We are force refreshing {ticker} {period}".format(ticker = ticker, period = period))
+                        #f.ticker = ticker
+                        #f.period = period
+                        f.revenue = revenue
+                        f.gross_margin = gross_margin
+                        f.operating_income = operating_income
+                        f.operating_margin = operating_margin
+                        f.net_income = net_income
+                        f.eps = eps
+                        f.dividends = dividends
+                        f.payout_ratio = payout_ratio
+                        f.shares = shares
+                        f.bps = bps
+                        f.operating_cash_flow = operating_cash_flow
+                        f.cap_spending = cap_spending
+                        f.fcf = fcf
+                        f.working_capital = working_capital
+                        f.current_ratio = current_ratio
+                        f.debt_equity = debt_equity
 
             db_session.commit()
 
@@ -393,7 +451,7 @@ class StockDataService:
             dividend_history_query = stockdatamodel.Dividend.query.filter(stockdatamodel.Dividend.ticker == ticker).filter(stockdatamodel.Dividend.period >= datey)
 
             # Refresh if need be and return
-            if force_refresh == True or dividend_history_query.count() < 1:
+            if force_refresh  or dividend_history_query.count() < 1:
                 self._refreshDividendsDB(ticker, force_refresh)
             # Pull them and return
             dividend_history_query = stockdatamodel.Dividend.query.filter(stockdatamodel.Dividend.ticker == ticker)
@@ -414,19 +472,32 @@ class StockDataService:
         # 2 Add to TB and return
         for index, row in dividends.iterrows():
 
-            div = Dividend(
+            period = row[0]
+            dividend = row[1]
+            #Check if it exists
+            query = stockdatamodel.Dividend.query.filter(stockdatamodel.Dividend.ticker == ticker).filter(stockdatamodel.Dividend.period == period)
+            if query.count() < 1:
+                logger.debug("Don't have this dividend yet {ticker} {period} ".format(ticker = ticker, period = period))
+                d  = stockdatamodel.Dividend(
                         ticker = ticker,
-                        period = row[0],
-                        dividend = row[1],
-                    )
-            try:
-                db_session.add(div)
-                res.append(div)
-
-            except Exception as e:
-                logger.exception("Failed to add to DB")
+                        period = period,
+                        dividend = dividend,
+                )
+                try:
+                    db_session.add(d)
+                    res.append(d)
+                except Exception as e:
+                    logger.exception("Failed to add dividend to DB")
+            else:
+                d = query.first()
+                logger.debug(d)
+                # If we need to force refresh update it
+                if force_refresh:
+                    logger.debug("We are force refreshing dividend {ticker} {period}".format(ticker = ticker, period = period))
+                    d.dividend = dividend
+                res.append(d)
         try:
             db_session.commit()
             return res
         except Exception as e:
-            logger.exception("Failed to commit to DB")
+            logger.exception("Failed to commit dividend to DB")
