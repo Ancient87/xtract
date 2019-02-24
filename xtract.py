@@ -6,8 +6,64 @@ import connexion
 from connexion.resolver import  RestyResolver
 from flask_cors import CORS
 import os
-import api
+
+
+import logging, sys
+import logging.config
+from flask.logging import default_handler
 from collections import defaultdict
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(module)s P%(process)d T%(thread)d %(message)s'
+            },
+        },
+    'handlers': {
+        'stdout': {
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+            'formatter': 'verbose',
+            'level': logging.WARNING,
+            },
+        'sys-logger6': {
+            'class': 'logging.handlers.SysLogHandler',
+            'address': '/dev/log',
+            'facility': "local6",
+            'formatter': 'verbose',
+            },
+        },
+    'loggers': {
+        __name__: {
+            'handlers': ['sys-logger6','stdout'],
+            'level': logging.DEBUG,
+            'propagate': True,
+            },
+        'stockdata_service': {
+            'handlers': ['sys-logger6','stdout'],
+            'level': logging.DEBUG,
+            'propagate': True,
+            },
+        'db': {
+                'handlers': ['sys-logger6','stdout'],
+                'level': logging.DEBUG,
+                'propagate': True,
+        },
+        'yahoo_reader': {
+                'handlers': ['sys-logger6','stdout'],
+                'level': logging.DEBUG,
+                'propagate': True,
+        }
+     }
+}
+
+logging.config.dictConfig(LOGGING)
+
+logging.getLogger(__name__).debug("Hi {0}".format(__name__))
+
+import api
 
 APP_HOST = os.environ['APP_HOST']
 APP_PORT = os.environ['APP_PORT']
@@ -16,6 +72,8 @@ app = connexion.App(__name__, specificatyion_dir="./")
 
 app.add_api('xtract_api_spec.yaml', resolver=RestyResolver('api'), validate_response=True)
 application = app.app
+
+
 
 @app.route('/')
 def home():

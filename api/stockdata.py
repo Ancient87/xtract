@@ -1,5 +1,5 @@
 # Handler for reading Tickers
-import stockdata_service
+from stockdata_service import stockdata_service
 
 sd = stockdata_service.StockDataService()
 

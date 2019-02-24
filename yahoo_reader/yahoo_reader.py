@@ -13,6 +13,9 @@ import time
 import requests
 import dateutil.parser
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_dividend(ticker, force_refresh = False):
 
@@ -21,7 +24,7 @@ def get_dividend(ticker, force_refresh = False):
     if force_refresh or not os.path.isfile(div_file):
         # Check if we have a file already or we are ovveriding
         dividend_url = "https://finance.yahoo.com/quote/{ticker}/history?period1=0&period2=2222222222&interval=div|split&filter=div&frequency=1mo".format(ticker = ticker)
-        print("Calling {url}".format(url = dividend_url))
+        logger.debug("Calling {url}".format(url = dividend_url))
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         #chrome_options.add_experimental_option("profile.default_content_settings.popups", 0)
@@ -37,56 +40,56 @@ def get_dividend(ticker, force_refresh = False):
         driver = webdriver.Chrome(chrome_options=chrome_options)
         driver.set_window_size(1920, 1080)
         size = driver.get_window_size()
-        print("Window size: width = {}px, height = {}px.".format(size["width"], size["height"]))
+        logger.debug("Window size: width = {}px, height = {}px.".format(size["width"], size["height"]))
         driver.get(dividend_url)
 
 
         # Handle annoying redirect
         python_button = driver.find_elements_by_xpath("//button[@name='agree']") #FHSU
         if  len(python_button) > 0:
-            print("Agreement screen")
-            print(driver.page_source)
+            logger.debug("Agreement screen")
+            logger.debug(driver.page_source)
             python_button = python_button[0]
-            print(python_button)
+            logger.debug(python_button)
             python_button.click() #click link
 
-            print("After the click")
-            print(driver.page_source[:10000])
+            logger.debug("After the click")
+            logger.debug(driver.page_source[:10000])
             company_xpath = "//a"
-            print("Waiting for {0}".format(company_xpath))
+            logger.debug("Waiting for {0}".format(company_xpath))
             try:
                 next_page = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.LINK_TEXT, 'here')))
                 driver.find_element_by_link_text("here").click()
 
-                print("Found next link")
+                logger.debug("Found next link")
             except Exception as e:
-                print("Failed to pass splash-screen")
-                print(driver.page_source[:10000])
-                print(e)
+                logger.debug("Failed to pass splash-screen")
+                logger.debug(driver.page_source[:10000])
+                logger.debug(e)
 
         '''
         # Get CSV link
         try:
             link = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.LINK_TEXT, 'Download Data')))
-            print("Linky link {0}".format(link))
+            logger.debug("Linky link {0}".format(link))
             #something = link.click()
-            #print("Something {0}".format(something))
+            #logger.debug("Something {0}".format(something))
             link = link.get_attribute('href')
-            print(link)
+            logger.debug(link)
             driver.get(link)
             #res = requests.get(link)
-            #print(res)
+            #logger.debug(res)
             with open(div_file, "w") as f:
                 f.write(res.text)
         except Exception as e:
-            print("Error saving file {error}".format(error = e))
-            print(e)
+            logger.debug("Error saving file {error}".format(error = e))
+            logger.debug(e)
 
         '''
         # Invoke JS to load all history
         last_height = driver.execute_script("return document.body.scrollHeight")
 
-        print("STARTING SCROLLY SCROLL {0}".format(last_height))
+        logger.debug("STARTING SCROLLY SCROLL {0}".format(last_height))
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         i = 0
         while i < 2:
@@ -97,15 +100,15 @@ def get_dividend(ticker, force_refresh = False):
             #last_height = new_height
             #driver.send_keys(Keys.SPACE)
             i = i + 1
-            print("Scroll {i}".format(i = i))
+            logger.debug("Scroll {i}".format(i = i))
         # Save temporary code
         try:
             with open(div_file, "w") as f:
                 mess = BeautifulSoup(driver.page_source, 'lxml')
-                #print(mess)
+                #logger.debug(mess)
                 f.write(driver.page_source)
         except Exception as e:
-            print("Error saving file {error}".format(error = e))
+            logger.debug("Error saving file {error}".format(error = e))
 
         div_source = None
 
@@ -113,11 +116,11 @@ def get_dividend(ticker, force_refresh = False):
         with open(div_file, "r") as f:
 
             mess = BeautifulSoup(f, 'lxml')
-            #print(mess)
+            #logger.debug(mess)
             # All table rows contain dividends
             rows = mess.find("table", {"data-test" : "historical-prices"})
             #rows = mess.findAll("tr")
-            #print("ALL DIVIDENDS")
+            #logger.debug("ALL DIVIDENDS")
 
             data = []
             labels = ["Date", "Dividend"]
@@ -128,7 +131,7 @@ def get_dividend(ticker, force_refresh = False):
             rows = rows[:-1]
             for row in rows:
                 try:
-                    #print("ROW {0}".format(row))
+                    #logger.debug("ROW {0}".format(row))
                     # Date
                     date = row.find("span")
                     date_text = date.renderContents().strip()
@@ -138,18 +141,18 @@ def get_dividend(ticker, force_refresh = False):
                     dividend = row.find("strong")
                     dividend_text = dividend.renderContents().strip()
                     dividend_text = float(dividend_text)
-                    print("Date: {0}, Dividend {1}".format(date_text, dividend_text))
+                    logger.debug("Date: {0}, Dividend {1}".format(date_text, dividend_text))
                     data.append((date_text, dividend_text))
                 except Exception as e:
-                    print("Failed to parse {0}".format(row))
-                    traceback.print_exc()
+                    logger.debug("Failed to parse {0}".format(row))
+                    traceback.logger.debug_exc()
 
             div_frame = pd.DataFrame.from_records(data, columns=labels)
             return div_frame
     except Exception as e:
-        print(e)
+        logger.debug(e)
 
 
 if __name__ == "__main__":
     frame = get_dividend("AFL")
-    print(frame)
+    logger.debug(frame)

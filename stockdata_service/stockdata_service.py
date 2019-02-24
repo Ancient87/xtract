@@ -6,28 +6,36 @@ import pickle
 import traceback
 import good_morning as gm
 import pymysql
-from database import db_session
-import stockdatamodel
-from stockdatamodel import *
+from db.database import db_session
+from db.stockdatamodel import *
+from db import stockdatamodel
 from datetime import date, datetime, timedelta
 import os
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 import yahoo_reader.yahoo_reader
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class StockDataService:
 
-    #    def init(self, db_host="localhost:", db_user="ancient", db_pass="lolchu", db_name="divgro"):
-
-    def init(self):
+    def __init__(self):
+        logger.debug("Instantiated StockDataService")
+        if not os.path.exists("tmp"):
+            logger.debug("Creating tmp dir")
+            os.makedirs("tmp")
+        '''
         try:
             #Setup the DB
             database.init_db()
             #conn = pymysql.connect(host = db_host, user = db_user, passwd = db_pass, db = db_name)
             #self.db = conn
-        except:
-            print("Unexpected error {0}".format(sys.exc_info()[0]))
+        except Exception as e:
+            logger.exception(e)
+        '''
 
     def _getDividendHistoryDB(self, ticker):
         #TODO: From DB
@@ -44,7 +52,7 @@ class StockDataService:
         """
 
         # Build financials
-        print("Request for {0}".format(ticker))
+        logger.debug("Request for {0}".format(ticker))
         #financial = {}
         financial = self._getFinancial(ticker).dump()
 
@@ -53,7 +61,7 @@ class StockDataService:
 
         # Get Valuation
         valuations = [val.dump() for val in self._getValuations(ticker)]
-        print(valuations)
+        logger.debug(valuations)
 
         financial['ratios'] = ratios
         financial['valuations'] = valuations
@@ -84,7 +92,7 @@ class StockDataService:
 
         query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker).filter(stockdatamodel.Valuation.year == year_object)
         if not force_refresh and query.count() == 1:
-            print("Gotcha")
+            logger.debug("Gotcha")
             query = stockdatamodel.Valuation.query.filter(stockdatamodel.Valuation.ticker == ticker)
             return query.all()
 
@@ -96,17 +104,17 @@ class StockDataService:
         if not os.path.isfile(val_file) or force_refresh:
             # Get the file from Morningstar
             rurl = "{val_base_url}&t={ticker}".format(val_base_url = VALUATION_BASE_URL, ticker = ticker)
-            #print("Getting {0}".format(rurl))
+            #logger.debug("Getting {0}".format(rurl))
             valuations = requests.get(rurl)
             # Write it to tmp
-            #print(valuations.status_code)
+            #logger.debug(valuations.status_code)
             if valuations.status_code == 200:
                 try:
-                    #print(valuations.text)
+                    #logger.debug(valuations.text)
                     with open(val_file, 'w') as f:
                         f.write(valuations.text)
                 except Exception as e:
-                    traceback.print_exc()
+                    logger.exception(e)
                     return False
 
 
@@ -127,13 +135,13 @@ class StockDataService:
                     q = Valuation.query.filter(Valuation.year == year).filter(Valuation.ticker == ticker)
                     if q.count() > 0:
                         continue
-                    print("<year: {0}>".format(year))
+                    logger.debug("<year: {0}>".format(year))
                     valuation = stockdatamodel.Valuation(
                             ticker = ticker,
                             year = year,
                             valuation = pe
                     )
-                    print(valuation)
+                    logger.debug(valuation)
                     db_session.add(valuation)
                     db_session.commit()
 
@@ -142,7 +150,7 @@ class StockDataService:
 
 
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
             return False
 
 
@@ -154,39 +162,39 @@ class StockDataService:
         """
         try:
             q = stockdatamodel.Financial.query.filter(stockdatamodel.Financial.ticker == ticker)
-            print("Query for {0} returned {1} results".format(ticker, q.count()))
+            logger.debug("Query for {0} returned {1} results".format(ticker, q.count()))
             today = datetime.today()
             yesterday = datetime.today() - timedelta(days=1)
             #yesterday = datetime.combine(yesterday, datetime.min.time())
-            if not q.count() == 1 or force_refresh or (q.count() == 1 and q.first().updated < yesterday.date()):
-
+            if (not q.count() == 1) or force_refresh or (q.count() == 1 and q.first().updated < yesterday.date()):
+                logger.debug("Retrieving financials for {0} q.count {1}".format(ticker, q.count()))
                 # Get data from the API
                 stats_url = "https://api.iextrading.com/1.0/stock/{0}/stats".format(ticker)
                 stats_file = "tmp/{ticker}_stats".format(ticker = ticker)
-                print(stats_file)
+                logger.debug(stats_file)
                 # Get data if it doesn't exist or we are refreshing
                 if not os.path.isfile(stats_file) or force_refresh:
-                    print("Requesting {0}".format(stats_url))
+                    logger.debug("Requesting {0}".format(stats_url))
                     stats = requests.get(stats_url)
                     if stats.status_code == 200:
-                        print("Got file from api")
+                        logger.debug("Got file from api")
                         try:
                             with open(stats_file, 'w') as f:
                                     f.write(stats.text)
                         except Exception as e:
-                                traceback.print_exc()
+                                logger.exception("Failed to write for {ticker} {error}".format(ticker = ticker, error =e))
                     else:
-                        print("Failed to get 200 response {0}".format(stats))
+                        logger.debug("Failed to get 200 response {0}".format(stats))
 
                 try:
                     with open(stats_file, 'rb') as f:
-                        print(f)
+                        logger.debug(f)
                         data = json.load(f)
                         div_yield = data["dividendYield"]
                         beta = data["beta"]
                         company_name = data["companyName"]
                         if q.count() == 1:
-                            print("Entry for {0} already exists - refreshing".format(ticker))
+                            logger.debug("Entry for {0} already exists - refreshing".format(ticker))
                             f = q.first()
                             f.beta = beta
                             f.dividend_yield = div_yield
@@ -207,12 +215,13 @@ class StockDataService:
                     db_session.commit()
                     return f
                 except Exception as e:
-                    traceback.print_exc()
+                    logger.exception(e)
             else:
+                logger.debug("We already have {0} so we are returning it".format(ticker))
                 return q.first()
 
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
     def _getKeyRatios(self, ticker = "ACN", force_refresh = False):
         """
         This function goes and pulls the financials from the DB if it exists or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
@@ -236,7 +245,7 @@ class StockDataService:
 
             # If they don't exist error
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
             return 400, 'Ratios not found for {0}'.format(ticker)
 
     def _getRatiosDB(self, ticker, force_refresh = False):
@@ -246,19 +255,19 @@ class StockDataService:
         """
         financials = stockdatamodel.Ratio.query.filter(stockdatamodel.Ratio.ticker == ticker)
         if financials.count() < 1:
-            print("Financials not found in DB for".format(ticker))
+            logger.debug("Financials not found in DB for".format(ticker))
             return
 
         return financials.all()
 
     def save_frames_temp(self, frames, ticker):
-        fname = "./{ticker}_pickle.pkl".format(ticker = ticker)
+        fname = "tmp/{ticker}_pickle.pkl".format(ticker = ticker)
         with open(fname, 'wb') as f:
             pickle.dump(frames, f)
         #frames.to_pickle("./{ticker}_pickle.pkl".format(ticker))
 
     def restore_frames(self, ticker):
-        fname = "./{ticker}_pickle.pkl".format(ticker = ticker)
+        fname = "tmp/{ticker}_pickle.pkl".format(ticker = ticker)
         try:
             with open(fname, 'rb') as f:
                 frames = pickle.load(f)
@@ -266,21 +275,21 @@ class StockDataService:
                     return False
                 return frames
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
             return False
     def _datefromperiod(self, year):
-        print("Converting {0}".format(year))
+        logger.debug("Converting {0}".format(year))
         return datetime.strptime(str(year), '%Y')
 
     def _sanitise(self, number):
-#       print("number {0}".format(number))
+#       logger.debug("number {0}".format(number))
         if number != number:
-#            print("{0} is NaN".format(number))
+#            logger.debug("{0} is NaN".format(number))
             return 0.0
         try:
             return float(number)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
             return 0.0
 
     def _refreshRatiosDB(self, ticker):
@@ -289,10 +298,10 @@ class StockDataService:
         """
         frames = self.restore_frames(ticker)
         if frames:
-            print("Found frames in pickle {ticker}".format(ticker = ticker))
+            logger.debug("Found frames in pickle {ticker}".format(ticker = ticker))
         else:
             pass
-            print("Refreshing from GoodMorning {ticker}".format(ticker = ticker))
+            logger.debug("Refreshing from GoodMorning {ticker}".format(ticker = ticker))
             kr = gm.KeyRatiosDownloader()
             frames = kr.download(ticker)
             self.save_frames_temp(frames, ticker)
@@ -328,11 +337,11 @@ class StockDataService:
                 current_ratio = self._sanitise(h_s["Current Ratio"])
                 debt_equity = self._sanitise(h_s["Debt/Equity"])
 
-                print("Found and starting to build {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
+                logger.debug("Found and starting to build {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
                #Check if it exists
                 query = stockdatamodel.Ratio.query.filter(stockdatamodel.Ratio.ticker == ticker).filter(stockdatamodel.Ratio.period == period)
                 if query.count() < 1:
-                    print("Don't have this yet {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
+                    logger.debug("Don't have this yet {ticker} {period} {eps}".format(ticker = ticker, period = period, eps = eps))
                     f  = stockdatamodel.Ratio(
                             ticker = ticker,
                             period = period,
@@ -356,7 +365,7 @@ class StockDataService:
                     db_session.add(f)
                 else:
                     f = query.first()
-                    print(f)
+                    logger.debug(f)
 
             db_session.commit()
 
@@ -392,7 +401,7 @@ class StockDataService:
 
             # If they don't exist error
         except Exception as e:
-            traceback.print_exc()
+            logger.exception(e)
             return 400, 'Ratios not found for {0}'.format(ticker)
 
 
@@ -415,10 +424,9 @@ class StockDataService:
                 res.append(div)
 
             except Exception as e:
-                traceback.print_exc()
-
+                logger.exception("Failed to add to DB")
         try:
             db_session.commit()
             return res
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Failed to commit to DB")

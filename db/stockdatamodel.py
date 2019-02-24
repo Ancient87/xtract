@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey
-from database import Base
+from db.database import Base
 
 class Financial(Base):
     __tablename__ = 'financials'
@@ -41,21 +41,6 @@ class Ratio(Base):
 
     def dump(self):
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
-
-'''
-class Health(Base):
-   __tablename__ = 'health'
-   ticker = Column(String(10), primary_key=True)
-   period = Column(String(10), primary_key=True)
-   current_ratio = Column(Float)
-   debt_equity = Column(Float)
-
-    def __init__(self, ticker, period, current_ratio, debt_equity):
-        self.ticker = ticker
-        self.period = period
-        self.current_ratio = current_ratio
-        self.debt_equity = debt_equity
-'''
 
 class Valuation(Base):
     __tablename__ = 'valuations'
