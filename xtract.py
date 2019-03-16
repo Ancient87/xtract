@@ -18,7 +18,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(module)s P%(process)d T%(thread)d %(message)s'
+            'format': '%(levelname)s %(filename)s:%(lineno)d %(message)s'
             },
         },
     'handlers': {
@@ -33,6 +33,7 @@ LOGGING = {
             'address': '/dev/log',
             'facility': "local6",
             'formatter': 'verbose',
+            'level': logging.DEBUG,
             },
         },
     'loggers': {
@@ -80,7 +81,7 @@ def home():
     """
     Hello world @ 5000
     """
-    return api.stockdata.get('AMZN')
+    return api.stockdata.get('AMZN', False)
     return render_template('home.html')
 
 '''

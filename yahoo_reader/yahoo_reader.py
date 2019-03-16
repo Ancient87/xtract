@@ -45,7 +45,8 @@ def get_dividend(ticker, force_refresh = False):
 
 
         # Handle annoying redirect
-        python_button = driver.find_elements_by_xpath("//button[@name='agree']") #FHSU
+        #python_button = driver.find_elements_by_xpath("//button[@name='agree']") #FHSU
+        python_button = driver.find_elements_by_xpath("/html/body/div[1]/div[2]/div[4]/div/div[2]/form[1]/div/input")
         if  len(python_button) > 0:
             logger.debug("Agreement screen")
             logger.debug(driver.page_source)
@@ -144,13 +145,12 @@ def get_dividend(ticker, force_refresh = False):
                     logger.debug("Date: {0}, Dividend {1}".format(date_text, dividend_text))
                     data.append((date_text, dividend_text))
                 except Exception as e:
-                    logger.debug("Failed to parse {0}".format(row))
-                    traceback.logger.debug_exc()
+                    logger.exception("Failed to parse {0}".format(row))
 
             div_frame = pd.DataFrame.from_records(data, columns=labels)
             return div_frame
     except Exception as e:
-        logger.debug(e)
+        logger.exception("Failed to parse dividend")
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ class StockDataService:
         #Return as per API contract
         return {}
 
-    def getInfo(self, ticker = "ACN"):
+    def getInfo(self, ticker = "ACN", exchange = "XNYS"):
         logger.debug("Info request for {ticker}".format(ticker = ticker))
 
         financial = None
@@ -68,7 +68,7 @@ class StockDataService:
         return jsonify(stockdata)
 
 
-    def getTicker(self, ticker = "ACN", force_refresh = False):
+    def getTicker(self, ticker = "ACN", exchange = "XNYS", force_refresh = False):
         """
         This function goes and pulls the financials from the DBs if they exist or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
         :return Ratios object
@@ -81,7 +81,14 @@ class StockDataService:
         financial = None
         stockdate = None
         ratios = None
+        alt_ticker = None
 
+        # Horrendous hack for Morningstar Index specific symbols e.g. "XNAS:MSFT vs MSFT"
+        if ":" in ticker:
+            alt_ticker = ticker
+            ticker = ticker.split(":")[1]
+            exchange = ticker.split(":")[0]
+            logger.debug(": ticker {ticker} {alt_ticker}".format(ticker = ticker, alt_ticker = alt_ticker))
         try:
             financial = self._getFinancial(ticker, force_refresh).dump()
         except Exception as e:
@@ -89,10 +96,10 @@ class StockDataService:
             return "Not found", 404
 
         # Get Key Ratios (incl health)
-        ratios = [val.dump() for val in self._getKeyRatios(ticker, force_refresh)]
+        ratios = [val.dump() for val in self._getKeyRatios(ticker, force_refresh, exchange = exchange)]
 
         # Get Valuation
-        valuations = [val.dump() for val in self._getValuations(ticker, force_refresh)]
+        valuations = [val.dump() for val in self._getValuations(ticker, force_refresh, exchange = exchange)]
         logger.debug(valuations)
 
         financial['ratios'] = ratios
@@ -111,7 +118,7 @@ class StockDataService:
 
         return jsonify(stockdata)
 
-    def _getValuations(self, ticker = "ACN", force_refresh = False):
+    def _getValuations(self, ticker = "ACN", force_refresh = False, exchange = "XNYS"):
         '''
         Gets the Valuation from the DB if it exists and isn't forced to be refreshed OR is out of date
         Tries the DB then triest Morningstar via soup
@@ -130,12 +137,14 @@ class StockDataService:
 
         # Get the data
         VALUATION_BASE_URL = "http://financials.morningstar.com/valuate/valuation-history.action?&type=price-earnings"
-
+        ms_ticker = ticker
+        if ticker != "":
+            ms_ticker = "{exchange}:{ticker}".format(exchange = exchange, ticker = ticker)
         # Check the file doesn't exist
         val_file = "tmp/{ticker}_pe".format(ticker = ticker)
         if not os.path.isfile(val_file) or force_refresh:
             # Get the file from Morningstar
-            rurl = "{val_base_url}&t={ticker}".format(val_base_url = VALUATION_BASE_URL, ticker = ticker)
+            rurl = "{val_base_url}&t={ms_ticker}".format(val_base_url = VALUATION_BASE_URL, ms_ticker = ms_ticker)
             #logger.debug("Getting {0}".format(rurl))
             valuations = requests.get(rurl)
             # Write it to tmp
@@ -164,10 +173,11 @@ class StockDataService:
                 for index, td in enumerate(reversed(pes)):
                     pe = self._sanitise(list(td.children)[0])
                     year = datetime(year_ref-index, 12, 31)
+                    # Skip valuations we already have
                     q = Valuation.query.filter(Valuation.year == year).filter(Valuation.ticker == ticker)
                     if q.count() > 0:
                         continue
-                    logger.debug("<year: {0}>".format(year))
+                    logger.debug("<year: {year} valuation:{valuation}>".format(year = year, valuation = pe))
                     valuation = stockdatamodel.Valuation(
                             ticker = ticker,
                             year = year,
@@ -194,12 +204,19 @@ class StockDataService:
         """
         try:
             q = stockdatamodel.Financial.query.filter(stockdatamodel.Financial.ticker == ticker)
-            logger.debug("Query for {0} returned {1} results".format(ticker, q.count()))
+            count = 0
+            count = q.count()
+            first = None
+            updated = None
+            if count > 0:
+                first = q.first()
+                updated = first.updated
+            logger.debug("Query for {0} returned {1} results".format(ticker, count))
             today = datetime.today()
             yesterday = datetime.today() - timedelta(days=1)
             #yesterday = datetime.combine(yesterday, datetime.min.time())
-            if force_refresh or (not q.count() == 1) or (q.count() == 1 and (not q.first().updated == None) and (q.first().updated < yesterday.date())):
-                logger.debug("Retrieving financials for {0} q.count {1}".format(ticker, q.count()))
+            if force_refresh or count == 0 or first == None or updated == None or updated < yesterday.date():
+                logger.debug("Retrieving financials for {0} q.count {1} updated {2}".format(ticker, count, updated))
                 # Get data from the API
                 stats_url = "https://api.iextrading.com/1.0/stock/{0}/stats".format(ticker)
                 stats_file = "tmp/{ticker}_stats".format(ticker = ticker)
@@ -233,6 +250,7 @@ class StockDataService:
                             f.dividend_yield = div_yield
                             f.company_name = company_name
                             f.updated = today
+                            db_session.commit()
 
                         else:
                             # Indicate that this hasn't ever been fully updated
@@ -259,7 +277,7 @@ class StockDataService:
 
         except Exception as e:
             logger.exception(e)
-    def _getKeyRatios(self, ticker = "ACN", force_refresh = False):
+    def _getKeyRatios(self, ticker = "ACN", force_refresh = False, exchange = "XNYS"):
         """
         This function goes and pulls the financials from the DB if it exists or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
 
@@ -274,7 +292,7 @@ class StockDataService:
 
             # Refresh if need be
             if key_ratios_query.count() < 1 or force_refresh == True:
-                self._refreshRatiosDB(ticker, force_refresh)
+                self._refreshRatiosDB(ticker, force_refresh, exchange = exchange)
 
             # Now look them up
             key_ratios = self._getRatiosDB(ticker)
@@ -317,7 +335,7 @@ class StockDataService:
             return False
     def _datefromperiod(self, year):
         logger.debug("Converting {0}".format(year))
-        return datetime.strptime(str(year), '%Y')
+        return datetime.strptime("{year}-12-31".format(year = year), "%Y-%m-%d")
 
     def _sanitise(self, number):
 #       logger.debug("number {0}".format(number))
@@ -330,18 +348,21 @@ class StockDataService:
             logger.exception(e)
             return 0.0
 
-    def _refreshRatiosDB(self, ticker, force_refresh):
+    def _refreshRatiosDB(self, ticker, force_refresh, exchange = "XNYS"):
         """
         Uses goodmorning to populate ratios
         """
         frames = None
+        ms_ticker = ticker
+        if exchange != "":
+            ms_ticker = "{exchange}:{ticker}".format(exchange = exchange, ticker = ticker)
         frames = self.restore_frames(ticker)
         if frames and not force_refresh:
             logger.debug("Found frames in pickle {ticker}".format(ticker = ticker))
         else:
-            logger.debug("Refreshing from GoodMorning {ticker}".format(ticker = ticker))
+            logger.debug("Refreshing from GoodMorning {ticker} {exchange} {ms_ticker}".format(ticker = ticker,  exchange = exchange, ms_ticker = ms_ticker))
             kr = gm.KeyRatiosDownloader()
-            frames = kr.download(ticker)
+            frames = kr.download(ms_ticker)
 
         if frames:
             # Deal with the key ratios and write them to the DB
@@ -350,10 +371,13 @@ class StockDataService:
             financials = frames[0]
             health = frames[9]
             temp_objects = {}
-            for year in financials:
-
+            last_period = True
+            for year in sorted(financials, reverse = True):
                 series = financials[year]
                 period = self._datefromperiod(year)
+                #if last_period:
+                #    period = self._datefromperiod("1900")
+                #    last_period = False
                 revenue = self._sanitise(series[0])
                 gross_margin = self._sanitise(series[1])
                 operating_income = self._sanitise(series[2])
@@ -466,9 +490,14 @@ class StockDataService:
     def _refreshDividendsDB(self, ticker, force_refresh = False):
 
         # 1 Use yahoo reader to scrape
-        dividends = yahoo_reader.yahoo_reader.get_dividend(ticker, force_refresh)
-
         res = []
+        dividends = None
+        try:
+            dividends = yahoo_reader.yahoo_reader.get_dividend(ticker, force_refresh)
+        except Exception as e:
+            logger.exception("Failed to parse dividends for {ticker}".format(ticker = ticker))
+            return res
+
         # 2 Add to TB and return
         for index, row in dividends.iterrows():
 
