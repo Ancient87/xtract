@@ -7,7 +7,7 @@ sd = stockdata_service.StockDataService()
 def get(ticker):
     # Invoke the stock data extractor
     logging.getLogger(__name__).debug("From the handler Request for {0}".format(ticker))
-    return sd.getInfo(ticker)
+    return sd.getInfo(ticker, exchange = "")
 
 
 def put(ticker):

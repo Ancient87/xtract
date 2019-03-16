@@ -91,6 +91,7 @@ class StockDataService:
             logger.debug(": ticker {ticker} {alt_ticker}".format(ticker = ticker, alt_ticker = alt_ticker))
         try:
             financial = self._getFinancial(ticker, force_refresh).dump()
+            logger.debug("This is the financial {financial}".format(financial = financial))
         except Exception as e:
             logger.exception("Failed to retrieve data for {ticker}".format(ticker = ticker))
             return "Not found", 404
@@ -245,12 +246,14 @@ class StockDataService:
                         company_name = data["companyName"]
                         if q.count() == 1:
                             logger.debug("Entry for {0} already exists - refreshing".format(ticker))
-                            f = q.first()
-                            f.beta = beta
-                            f.dividend_yield = div_yield
-                            f.company_name = company_name
-                            f.updated = today
+                            financial = q.first()
+                            financial.beta = beta
+                            financial.dividend_yield = div_yield
+                            financial.company_name = company_name
+                            financial.updated = today
                             db_session.commit()
+                            logger.debug("Returning financial {financial}".format(financial = financial))
+                            return financial
 
                         else:
                             # Indicate that this hasn't ever been fully updated
@@ -519,7 +522,7 @@ class StockDataService:
                     logger.exception("Failed to add dividend to DB")
             else:
                 d = query.first()
-                logger.debug(d)
+                #logger.debug(d)
                 # If we need to force refresh update it
                 if force_refresh:
                     logger.debug("We are force refreshing dividend {ticker} {period}".format(ticker = ticker, period = period))

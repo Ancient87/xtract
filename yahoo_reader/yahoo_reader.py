@@ -49,23 +49,23 @@ def get_dividend(ticker, force_refresh = False):
         python_button = driver.find_elements_by_xpath("/html/body/div[1]/div[2]/div[4]/div/div[2]/form[1]/div/input")
         if  len(python_button) > 0:
             logger.debug("Agreement screen")
-            logger.debug(driver.page_source)
+            #logger.debug(driver.page_source)
             python_button = python_button[0]
             logger.debug(python_button)
             python_button.click() #click link
 
             logger.debug("After the click")
-            logger.debug(driver.page_source[:10000])
+            #logger.debug(driver.page_source[:10000])
             company_xpath = "//a"
             logger.debug("Waiting for {0}".format(company_xpath))
             try:
-                next_page = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.LINK_TEXT, 'here')))
+                next_page = WebDriverWait(driver, 0.2).until(EC.element_to_be_clickable((By.LINK_TEXT, 'here')))
                 driver.find_element_by_link_text("here").click()
 
                 logger.debug("Found next link")
             except Exception as e:
                 logger.debug("Failed to pass splash-screen")
-                logger.debug(driver.page_source[:10000])
+                #logger.debug(driver.page_source[:10000])
                 logger.debug(e)
 
         '''
@@ -95,7 +95,7 @@ def get_dividend(ticker, force_refresh = False):
         i = 0
         while i < 2:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight*10000);")
-            time.sleep(1)
+            time.sleep(0.1)
             # Calculate new scroll height and compare with last scroll height
             #new_height = driver.execute_script("return document.body.scrollHeight")
             #last_height = new_height
