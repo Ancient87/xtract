@@ -1,9 +1,9 @@
 from flask import (
-        Flask,
-        render_template,
+    Flask,
+    render_template,
 )
 import connexion
-from connexion.resolver import  RestyResolver
+from connexion.resolver import RestyResolver
 from flask_cors import CORS
 import os
 
@@ -14,50 +14,48 @@ from flask.logging import default_handler
 from collections import defaultdict
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '%(levelname)s %(filename)s:%(lineno)d %(message)s'
-            },
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "%(levelname)s %(filename)s:%(lineno)d %(message)s"},
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "stream": sys.stdout,
+            "formatter": "verbose",
+            "level": logging.WARNING,
         },
-    'handlers': {
-        'stdout': {
-            'class': 'logging.StreamHandler',
-            'stream': sys.stdout,
-            'formatter': 'verbose',
-            'level': logging.WARNING,
-            },
-        'sys-logger6': {
-            'class': 'logging.handlers.SysLogHandler',
-            'address': '/dev/log',
-            'facility': "local6",
-            'formatter': 'verbose',
-            'level': logging.DEBUG,
-            },
+        "sys-logger6": {
+            "class": "logging.handlers.SysLogHandler",
+            "address": "/dev/log",
+            "facility": "local6",
+            "formatter": "verbose",
+            "level": logging.DEBUG,
         },
-    'loggers': {
+    },
+    "loggers": {
         __name__: {
-            'handlers': ['sys-logger6','stdout'],
-            'level': logging.DEBUG,
-            'propagate': True,
-            },
-        'stockdata_service': {
-            'handlers': ['sys-logger6','stdout'],
-            'level': logging.DEBUG,
-            'propagate': True,
-            },
-        'db': {
-                'handlers': ['sys-logger6','stdout'],
-                'level': logging.DEBUG,
-                'propagate': True,
+            "handlers": ["sys-logger6", "stdout"],
+            "level": logging.DEBUG,
+            "propagate": True,
         },
-        'yahoo_reader': {
-                'handlers': ['sys-logger6','stdout'],
-                'level': logging.DEBUG,
-                'propagate': True,
-        }
-     }
+        "stockdata_service": {
+            "handlers": ["sys-logger6", "stdout"],
+            "level": logging.DEBUG,
+            "propagate": True,
+        },
+        "db": {
+            "handlers": ["sys-logger6", "stdout"],
+            "level": logging.DEBUG,
+            "propagate": True,
+        },
+        "yahoo_reader": {
+            "handlers": ["sys-logger6", "stdout"],
+            "level": logging.DEBUG,
+            "propagate": True,
+        },
+    },
 }
 
 logging.config.dictConfig(LOGGING)
@@ -66,25 +64,25 @@ logging.getLogger(__name__).debug("Hi {0}".format(__name__))
 
 import api
 
-APP_HOST = os.environ['APP_HOST']
-APP_PORT = os.environ['APP_PORT']
+APP_HOST = os.environ["APP_HOST"]
+APP_PORT = os.environ["APP_PORT"]
 
-app = connexion.App(__name__, specificatyion_dir="./")
+app = connexion.App(__name__, specification_dir="api")
 
-app.add_api('xtract_api_spec.yaml', resolver=RestyResolver('api'), validate_response=True)
+app.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
 application = app.app
 
 
-
-@app.route('/')
+@app.route("/")
 def home():
     """
     Hello world @ 5000
     """
-    return api.stockdata.get('AMZN', False)
-    return render_template('home.html')
+    return api.stockdata.get("AMZN", False)
+    return render_template("home.html")
 
-'''
+
+"""
 @app.cli.command()
 def routes():
     'Display registered routes'
@@ -97,7 +95,8 @@ def routes():
     for endpoint, methods, rule in sorted(rules, key=sort_by_rule):
         route = '{:50s} {:25s} {}'.format(endpoint, methods, rule)
         print(route)
-'''
+"""
+
 
 def list_routes():
     """
@@ -122,6 +121,7 @@ def list_routes():
         for rule, methods in sorted(clean_map[endpoint], key=lambda x: x[1]):
             print(format_str(endpoint, methods, rule))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     list_routes()
     app.run(host=APP_HOST, port=APP_PORT, debug=True)

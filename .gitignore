@@ -8,3 +8,4 @@ __pycache__/
 .gitignore
 gitignore
 __pycache__/
+.environ
