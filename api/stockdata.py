@@ -5,14 +5,12 @@ import logging
 sd = stockdata_service.StockDataService()
 
 # Handler for getting a ticker
-def get(ticker, force_refresh, exchange):
+def get(ticker, force_refresh):
     # Invoke the stock data extractor
     logging.getLogger(__name__).debug(
-        "From the handler Request for {0} {1} {2}".format(
-            ticker, force_refresh, exchange
-        )
+        f"From the handler Request for {ticker} {force_refresh}"
     )
-    return sd.getTicker(ticker=ticker, exchange=exchange, force_refresh=force_refresh)
+    return sd.get_ticker(ticker=ticker, refresh=force_refresh)
 
 
 def put(ticker):

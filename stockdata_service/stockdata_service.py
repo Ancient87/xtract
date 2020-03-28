@@ -32,9 +32,6 @@ class StockDataService:
             os.makedirs("tmp")
         self.api = financial_api.financialmodelingprep.FinancialModelingPrep()
 
-    def _getDividendHistoryDB(self, ticker):
-        # TODO: From DB
-        return {"dividend_history": []}
 
     def _getStockDataResponse(self, key_ratios):
         # Return as per API contract
@@ -45,7 +42,7 @@ class StockDataService:
 
         financial = None
         try:
-            financial = selfself._get_financial(ticker, dirty=True).dump()
+            financial = selfself._get_financial(ticker).dump()
         except Exception as e:
             logger.exception(
                 "Failed to retrieve data for {ticker}".format(ticker=ticker)
@@ -57,23 +54,21 @@ class StockDataService:
 
         stockdata = {
             "symbol": ticker,
-            "name": ticker,
+            "name": financial["company_name"],
             "financials": financial,
             "dividend_history": [],
         }
 
         return jsonify(stockdata)
 
-    def getTicker(self, ticker="ACN", exchange="XNYS", refresh=False):
+    def get_ticker(self, ticker="ACN", refresh=False):
         """
         This function goes and pulls the financials from the DBs if they exist or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
         :return Ratios object
         """
 
         # Build financials
-        logger.debug(
-            "Request for {0} forcing_refresh {1}".format(ticker, refresh)
-        )
+        logger.debug("Request for {0} forcing_refresh {1}".format(ticker, refresh))
         # financial = {}
 
         financial = None
@@ -81,16 +76,6 @@ class StockDataService:
         ratios = None
         alt_ticker = None
 
-        # Horrendous hack for Morningstar Index specific symbols e.g. "XNAS:MSFT vs MSFT"
-        if ":" in ticker:
-            alt_ticker = ticker
-            ticker = ticker.split(":")[1]
-            exchange = ticker.split(":")[0]
-            logger.debug(
-                ": ticker {ticker} {alt_ticker}".format(
-                    ticker=ticker, alt_ticker=alt_ticker
-                )
-            )
         try:
             financial = self._get_financial(ticker, refresh).dump()
             logger.debug(
@@ -103,41 +88,32 @@ class StockDataService:
             return "Not found", 404
 
         # Get Key Ratios (incl health)
-        ratios = [
-            val.dump()
-            for val in self._get_key_ratios(ticker, refresh, exchange=exchange)
-        ]
+        ratios = [val.dump() for val in self._get_key_ratios(ticker, refresh)]
 
         # Get Valuation
-        valuations = [
-            val.dump()
-            for val in self._getValuations(ticker, refresh, exchange=exchange)
-        ]
+        valuations = [val.dump() for val in self._get_valuation_history(ticker, refresh)]
         logger.debug(valuations)
 
         financial["ratios"] = ratios
         financial["valuations"] = valuations
 
         # TODO: Get Dividend history
-        dividend_history = [
-            val.dump() for val in self._getDividends(ticker, refresh)
-        ]
+        dividend_history = [val.dump() for val in self._get_dividend_history(ticker, refresh)]
 
         # Assemble stock data
         stockdata = {
             "symbol": ticker,
-            "name": ticker,
+            "name": financial["company_name"],
             "financials": financial,
             "dividend_history": dividend_history,
         }
 
         return jsonify(stockdata)
 
-    def _getValuations(self, ticker="ACN", refresh=False, exchange="XNYS"):
+    def _get_valuation_history(self, ticker="ACN", refresh=False):
         """
-        Gets the Valuation from the DB if it exists and isn't forced to be refreshed OR is out of date
-        Tries the DB then triest Morningstar via soup
-        If soup file exists it won't tax MS
+        Gets the Valuation from the DB if it exists and isn't 
+        forced to be refreshed OR is out of date
         """
 
         # Try the database
@@ -148,76 +124,38 @@ class StockDataService:
             stockdatamodel.Valuation.ticker == ticker
         ).filter(stockdatamodel.Valuation.year == year_object)
         if not refresh and query.count() == 1:
-            logger.debug("Gotcha")
             query = stockdatamodel.Valuation.query.filter(
                 stockdatamodel.Valuation.ticker == ticker
             )
             return query.all()
 
-        # Get the data
-        VALUATION_BASE_URL = "http://financials.morningstar.com/valuate/valuation-history.action?&type=price-earnings"
-        ms_ticker = ticker
-        if ticker != "":
-            ms_ticker = "{exchange}:{ticker}".format(exchange=exchange, ticker=ticker)
-        # Check the file doesn't exist
-        val_file = "tmp/{ticker}_pe".format(ticker=ticker)
-        if not os.path.isfile(val_file) or refresh:
-            # Get the file from Morningstar
-            rurl = "{val_base_url}&t={ms_ticker}".format(
-                val_base_url=VALUATION_BASE_URL, ms_ticker=ms_ticker
-            )
-            # logger.debug("Getting {0}".format(rurl))
-            valuations = requests.get(rurl)
-            # Write it to tmp
-            # logger.debug(valuations.status_code)
-            if valuations.status_code == 200:
-                try:
-                    # logger.debug(valuations.text)
-                    with open(val_file, "w") as f:
-                        f.write(valuations.text)
-                except Exception as e:
-                    logger.exception(e)
-                    return False
-
-        try:
-            with open(val_file, "rb") as f:
-                soup = BeautifulSoup(f, "html.parser")
-                # <th abbr="Price/Earnings for AAPL" class="row_lbl" scope="row">AAPL</th>
-                pe = soup.find(abbr="Price/Earnings for {ticker}".format(ticker=ticker))
-                # [<td class="row_data">15.9</td>, <td class="row_data">20.6</td>, <td class="row_data">18</td>, <td class="row_data">14.6</td>, <td class="row_data">12.1</td>, <td class="row_data">14.1</td>, <td class="row_data">17.1</td>, <td class="row_data">11.4</td>, <td class="row_data">13.9</td>, <td class="row_data">18.4</td>, <td class="row_data_0">20.2</td>]
-                pes = pe.parent.findAll("td")
-                year_ref = datetime.today().year
-                year_object = datetime(year_ref, 12, 31)
-                valuations = []
-                for index, td in enumerate(reversed(pes)):
-                    pe = self._sanitise(list(td.children)[0])
-                    year = datetime(year_ref - index, 12, 31)
-                    # Skip valuations we already have
-                    q = Valuation.query.filter(Valuation.year == year).filter(
-                        Valuation.ticker == ticker
-                    )
-                    if q.count() > 0:
-                        continue
-                    logger.debug(
-                        "<year: {year} valuation:{valuation}>".format(
-                            year=year, valuation=pe
-                        )
-                    )
-                    valuation = stockdatamodel.Valuation(
-                        ticker=ticker, year=year, valuation=pe
-                    )
-                    logger.debug(valuation)
-                    db_session.add(valuation)
-                    db_session.commit()
-
-                query = stockdatamodel.Valuation.query.filter(
-                    stockdatamodel.Valuation.ticker == ticker
+        # Else go and fetch
+        data = self.api.get_valuation_history(ticker=ticker, refresh=refresh)
+        for valuation_i in data:
+            date = datetime.strptime(valuation_i.date, "%Y-%M-%d")
+            date = datetime(year=date.year, month=12, day=31)
+            query = stockdatamodel.Valuation.query.filter(
+                stockdatamodel.Valuation.ticker == ticker
+            ).filter(stockdatamodel.Valuation.year == date)
+            count = query.count()
+            if not refresh and count == 1:
+                continue
+            elif count < 1:
+                # Else build a new one
+                valuation = stockdatamodel.Valuation(
+                    ticker=ticker, year=date, valuation=valuation_i.valuation
                 )
-                return query.all()
+                logger.debug(valuation)
+                db_session.add(valuation)
+            elif refresh:
+                valuation = query.first()
+                valuation.valuation = valuation_i.valuation
+        db_session.commit()
 
-        except Exception as e:
-            logger.exception(e)
-            return False
+        query = stockdatamodel.Valuation.query.filter(
+            stockdatamodel.Valuation.ticker == ticker
+        )
+        return query.all()
 
     def _get_financial(self, ticker="ACN", refresh=False, dirty=False):
         """
@@ -252,9 +190,7 @@ class StockDataService:
                         ticker, count, updated
                     )
                 )
-                data = self.api.get_financial(
-                    ticker=ticker, refresh=refresh
-                )
+                data = self.api.get_financial(ticker=ticker, refresh=refresh)
 
                 div_yield = data.dividend_yield
                 beta = data.beta
@@ -292,11 +228,12 @@ class StockDataService:
             logger.debug("We already have {0} so we are returning it".format(ticker))
             return q.first()
 
-    def _get_key_ratios(self, ticker="ACN", refresh=False, exchange="XNYS"):
+    def _get_key_ratios(self, ticker="ACN", refresh=False):
         """
-        This function goes and pulls the financials from the DB if it exists or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
-
-        :return Ratios object
+        This function goes and pulls the financials from the DB if it exists or 
+        else (or if forced) reloads the DB. Then is constructs the JSON response 
+        required for DivGro and returns it as an object complying with swagger 
+        spec.
         """
         try:
             # See if they exist for this month
@@ -312,7 +249,7 @@ class StockDataService:
             # We need to refresh if we don't have it
             if key_ratios_query.count() < 1:
                 refresh = True
-            
+
             return self._get_ratios_db(ticker=ticker, refresh=refresh)
 
             # If they don't exist error
@@ -320,35 +257,22 @@ class StockDataService:
             logger.exception(e)
             return 400, "Ratios not found for {0}".format(ticker)
 
-        
-
     def _datefromperiod(self, year):
         logger.debug("Converting {0}".format(year))
         return datetime.strptime("{year}-12-31".format(year=year), "%Y-%m-%d")
-
-    def _sanitise(self, number):
-        #       logger.debug("number {0}".format(number))
-        if number != number:
-            #            logger.debug("{0} is NaN".format(number))
-            return 0.0
-        try:
-            return float(number)
-        except Exception as e:
-            logger.exception(e)
-            return 0.0
 
     def _get_ratios_db(self, ticker, refresh):
         """
         Uses API provider
         """
-        
-        ratios = self.api.get_ratios(ticker=ticker,refresh=refresh)
-        
+
+        ratios = self.api.get_ratios(ticker=ticker, refresh=refresh)
+
         if ratios:
             # Deal with the key ratios and write them to the DB
             call = []
             # Key Financials
-            
+
             # Loop through the result
             for year_ratio in ratios:
                 period = year_ratio.date
@@ -357,9 +281,7 @@ class StockDataService:
                     stockdatamodel.Ratio.ticker == ticker
                 ).filter(stockdatamodel.Ratio.period == period)
                 if query.count() < 1 or refresh:
-                    logger.debug(
-                        f"Decided to refresh {refresh} {ticker} {period}"
-                    )
+                    logger.debug(f"Decided to refresh {refresh} {ticker} {period}")
                     f = stockdatamodel.Ratio(
                         ticker=ticker,
                         period=period,
@@ -381,46 +303,40 @@ class StockDataService:
                         working_capital=0.0,
                     )
                     db_session.add(f)
-                
+
                 else:
                     f = query.first()
                     logger.debug(f)
                     # If we need to force refresh update it
                     if refresh:
-                        logger.debug(
-                            f"We are force refreshing {ticker} {period}"
-                        )
+                        logger.debug(f"We are force refreshing {ticker} {period}")
                         # f.ticker = ticker
                         # f.period = period
-                        f.revenue=year_ratio.revenue,
-                        f.gross_margin=year_ratio.gross_margin,
-                        f.operating_income=year_ratio.operating_income,
-                        f.operating_margin=year_ratio.operating_margin,
-                        f.net_income=year_ratio.net_income,
-                        f.eps=year_ratio.earnings_per_share,
-                        f.dividends=year_ratio.dividend,
-                        f.payout_ratio=year_ratio.payout_ratio,
-                        f.current_ratio=year_ratio.current_ratio,
-                        f.debt_equity=year_ratio.debt_equity,
-            
+                        f.revenue = (year_ratio.revenue,)
+                        f.gross_margin = (year_ratio.gross_margin,)
+                        f.operating_income = (year_ratio.operating_income,)
+                        f.operating_margin = (year_ratio.operating_margin,)
+                        f.net_income = (year_ratio.net_income,)
+                        f.eps = (year_ratio.earnings_per_share,)
+                        f.dividends = (year_ratio.dividend,)
+                        f.payout_ratio = (year_ratio.payout_ratio,)
+                        f.current_ratio = (year_ratio.current_ratio,)
+                        f.debt_equity = (year_ratio.debt_equity,)
+
             db_session.commit()
-            
+
             # Return the thing
             query = stockdatamodel.Ratio.query.filter(
-                    stockdatamodel.Ratio.ticker == ticker
+                stockdatamodel.Ratio.ticker == ticker
             )
-            
+
             return query.all()
 
-    def _getDividends(self, ticker, refresh=False):
+    def _get_dividend_history(self, ticker, refresh=False):
         """ Retrieves the dividend history for the given ticker
 
-        If we already have it and it's in date (not older than a month) return that. Otherwise we
-        grab it from yahoo finance
-
-        self -- this class
-        ticker -- the ticker symbol of this
-        refresh -- refresh even if in date
+        If we already have it and it's in date (not older than a month) return 
+        that. Otherwise we grab it from the API
         """
 
         # Step 1 Check the database
@@ -436,69 +352,51 @@ class StockDataService:
             ).filter(stockdatamodel.Dividend.period >= datey)
 
             # Refresh if need be and return
-            if refresh or dividend_history_query.count() < 1:
-                self._refreshDividendsDB(ticker, refresh)
-            # Pull them and return
-            dividend_history_query = stockdatamodel.Dividend.query.filter(
-                stockdatamodel.Dividend.ticker == ticker
-            )
-            return dividend_history_query.all()
+            if dividend_history_query.count() < 1:
+                refresh = True
 
+            res = self._get_dividend_history_db(ticker=ticker, refresh=refresh)
+            return res
             # If they don't exist error
         except Exception as e:
             logger.exception(e)
             return 400, "Ratios not found for {0}".format(ticker)
 
-    def _refreshDividendsDB(self, ticker, refresh=False):
+    def _get_dividend_history_db(self, ticker, refresh=False):
 
-        # 1 Use yahoo reader to scrape
-        res = []
-        dividends = None
-        try:
-            dividends = yahoo_reader.yahoo_reader.get_dividend(ticker, refresh)
-        except Exception as e:
-            logger.exception(
-                "Failed to parse dividends for {ticker}".format(ticker=ticker)
-            )
-            return res
-
-        # 2 Add to TB and return
-        for index, row in dividends.iterrows():
-
-            period = row[0]
-            dividend = row[1]
-            # Check if it exists
-            query = stockdatamodel.Dividend.query.filter(
-                stockdatamodel.Dividend.ticker == ticker
-            ).filter(stockdatamodel.Dividend.period == period)
-            if query.count() < 1:
-                logger.debug(
-                    "Don't have this dividend yet {ticker} {period} ".format(
-                        ticker=ticker, period=period
-                    )
+        period = self._datefromperiod(datetime.today().year)
+        # See if we have any dividends already
+        query = stockdatamodel.Dividend.query.filter(
+            stockdatamodel.Dividend.ticker == ticker
+        ).filter(stockdatamodel.Dividend.period >= period)
+        if query.count() < 1:
+            logger.debug(
+                "Don't have this dividend yet {ticker} {period} ".format(
+                    ticker=ticker, period=period
                 )
+            )
+            refresh = True
+        if refresh:
+            dividends = self.api.get_dividend_history(ticker=ticker)
+            for dividend in dividends:
+                query = stockdatamodel.Dividend.query.filter(
+                    stockdatamodel.Dividend.ticker == ticker
+                ).filter(stockdatamodel.Dividend.period == dividend.date)
+                if query.count() > 0:
+                    continue
                 d = stockdatamodel.Dividend(
-                    ticker=ticker, period=period, dividend=dividend,
+                    ticker=ticker, period=dividend.date, dividend=dividend.dividend,
                 )
                 try:
                     db_session.add(d)
-                    res.append(d)
                 except Exception as e:
-                    logger.exception("Failed to add dividend to DB")
-            else:
-                d = query.first()
-                # logger.debug(d)
-                # If we need to force refresh update it
-                if refresh:
-                    logger.debug(
-                        "We are force refreshing dividend {ticker} {period}".format(
-                            ticker=ticker, period=period
-                        )
-                    )
-                    d.dividend = dividend
-                res.append(d)
+                    logger.debug("Failed to add dividend to DB")
+
         try:
             db_session.commit()
-            return res
         except Exception as e:
-            logger.exception("Failed to commit dividend to DB")
+            #db_session.rollback()
+            logger.debug("Failed to commit dividend to DB")
+
+        return stockdatamodel.Dividend.query.filter(
+            stockdatamodel.Dividend.ticker == ticker).all()

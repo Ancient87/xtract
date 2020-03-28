@@ -35,12 +35,6 @@ paths:
         description: ticker symbol of stockdata to return
         required: true
         type: string
-      - name: exchange
-        in: query
-        description: exchange this stock is traded at
-        required: false
-        type: string
-        default: XNYS
       - name: force_refresh
         in: query
         description: Force refresh 

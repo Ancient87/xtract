@@ -2,6 +2,7 @@ from typing import List, Dict
 import requests
 import pickle
 import logging
+import datetime
 import os
 
 TMP_DIR = "tmp"
@@ -16,7 +17,7 @@ class FinancialApi:
     def get_ratios(self, ticker: str = "AMZN") -> List:
         pass
 
-    def get_valuations(self, ticker: str = "AMZN") -> List:
+    def get_valuation_history(self, ticker: str = "AMZN") -> List:
         pass
 
     def get_dividend_history(self, ticker: str = "AMZN") -> List:
@@ -96,12 +97,13 @@ class FinancialApi:
 
     class Valuation:
         def __init__(self, date: str, valuation: float):
+            # year = datetime.datetime.strptime(date, "%Y-%M-%d").year
             self.date = date
             self.valuation = valuation
 
     class DividendPayment:
         def __init__(
-            self, date: str, dividend_yield: float,
+            self, date: str, dividend: float,
         ):
             self.date = date
-            self.dividend_yield = dividend_yield
+            self.dividend = dividend

@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 from test import *
 
+
 class FinancialModelingPrepAPITest(unittest.TestCase):
     def setUp(self):
         print("Setting up the ModelingAPI")
@@ -14,13 +15,25 @@ class FinancialModelingPrepAPITest(unittest.TestCase):
 
     def test_get_ratios(self):
         data = self.prep.get_ratios(ticker=TEST_TICKER, refresh=FORCE_REFRESH)
+        assert len(data) > 2
         logger.debug(f"The data is {data}")
-        assert len(data) > 1
 
     def test_get_financial(self):
         data = self.prep.get_financial(ticker=TEST_TICKER, refresh=FORCE_REFRESH)
-        logger.debug(f"The data is {data}")
         assert data.company_name == TEST_COMPANY_NAME
+        logger.debug(f"The data is {data}")
+
+    def test_get_dividend_history(self):
+        data = self.prep.get_dividend_history(ticker=TEST_TICKER, refresh=FORCE_REFRESH)
+        assert len(data) > 2
+        logger.debug(f"The data is {data}")
+
+    def test_get_valuation_history(self):
+        data = self.prep.get_valuation_history(
+            ticker=TEST_TICKER, refresh=FORCE_REFRESH
+        )
+        assert len(data) > 2
+        logger.debug(f"The data is {data}")
 
     """
     def test_get_income_statement(self):
