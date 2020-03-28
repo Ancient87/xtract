@@ -14,6 +14,11 @@ import logging
 import pickle
 
 FINANCIAL_API = "https://financialmodelingprep.com/api/v3"
+INCOME_STATEMENT_ENDPOINT = f"{FINANCIAL_API}/income-statement"
+COMPANY_KEY_METRICS_ENDPOINT = f"{FINANCIAL_API}/company-key-metrics"
+RATIOS_ENDPOINT = f"{FINANCIAL_API}/financial-ratios"
+PROFILE_ENDPOINT = f"{FINANCIAL_API}/beta"
+DIVIDEND_ENDPOINT = f"{FINANCIAL_API}/historical-price-full/stock_dividend"
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +29,6 @@ class StockDataService:
         if not os.path.exists("tmp"):
             logger.debug("Creating tmp dir")
             os.makedirs("tmp")
-        """
-        try:
-            #Setup the DB
-            database.init_db()
-            #conn = pymysql.connect(host = db_host, user = db_user, passwd = db_pass, db = db_name)
-            #self.db = conn
-        except Exception as e:
-            logger.exception(e)
-        """
 
     def _getDividendHistoryDB(self, ticker):
         # TODO: From DB
@@ -228,6 +224,7 @@ class StockDataService:
         :return Financials object
         """
         try:
+            # Try looking it up
             q = stockdatamodel.Financial.query.filter(
                 stockdatamodel.Financial.ticker == ticker
             )
@@ -241,7 +238,7 @@ class StockDataService:
             logger.debug("Query for {0} returned {1} results".format(ticker, count))
             today = datetime.today()
             yesterday = datetime.today() - timedelta(days=1)
-            # yesterday = datetime.combine(yesterday, datetime.min.time())
+            # Decide whether to refresh
             if (
                 force_refresh
                 or count == 0
