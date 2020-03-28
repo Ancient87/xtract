@@ -275,8 +275,10 @@ class StockDataService:
                             profile_data = json.loads(profile.text)
                             profile_data = profile_data["profile"]
                             ratios_data = json.loads(ratios.text)
-                            ratios_data = ratios_data["ratios"][0]["investmentValuationRatios"]
-                            
+                            ratios_data = ratios_data["ratios"][0][
+                                "investmentValuationRatios"
+                            ]
+
                             profile_data.update(ratios_data)
                             with open(stats_file, "wb") as f:
                                 pickle.dump(profile_data, f)

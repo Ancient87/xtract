@@ -1,0 +1,3 @@
+TEST_TICKER = "MSFT"
+TEST_COMPANY_NAME = "Microsoft Corporation"
+FORCE_REFRESH = False
