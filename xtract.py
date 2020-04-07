@@ -7,11 +7,13 @@ from connexion.resolver import RestyResolver
 from flask_cors import CORS
 import os
 
-
+import database.base
 import logging, sys
 import logging.config
 from flask.logging import default_handler
 from collections import defaultdict
+
+
 
 LOGGING = {
     "version": 1,
@@ -71,7 +73,6 @@ app = connexion.App(__name__, specification_dir="api")
 
 app.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
 application = app.app
-
 
 @app.route("/")
 def home():

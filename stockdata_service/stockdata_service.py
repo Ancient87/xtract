@@ -4,15 +4,17 @@ from flask import jsonify
 import json
 import pickle
 import traceback
-from database.database import db_session
 from database.stockdatamodel import *
 from database import stockdatamodel
 from datetime import date, datetime, timedelta
+import database
+import database.database
 import os
 import requests
 import logging
 import pickle
 import financial_api.financialmodelingprep
+
 
 FINANCIAL_API = "https://financialmodelingprep.com/api/v3"
 INCOME_STATEMENT_ENDPOINT = f"{FINANCIAL_API}/income-statement"
@@ -25,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class StockDataService:
-    def __init__(self):
+    def __init__(self, db_session):
+        self.db_session = db_session
         logger.debug("Instantiated StockDataService")
         if not os.path.exists("tmp"):
             logger.debug("Creating tmp dir")
@@ -42,7 +45,7 @@ class StockDataService:
 
         financial = None
         try:
-            financial = selfself._get_financial(ticker).dump()
+            financial = self._get_financial(ticker).dump()
         except Exception as e:
             logger.exception(
                 "Failed to retrieve data for {ticker}".format(ticker=ticker)
@@ -146,11 +149,11 @@ class StockDataService:
                     ticker=ticker, year=date, valuation=valuation_i.valuation
                 )
                 logger.debug(valuation)
-                db_session.add(valuation)
+                self.db_session.add(valuation)
             elif refresh:
                 valuation = query.first()
                 valuation.valuation = valuation_i.valuation
-        db_session.commit()
+        self.db_session.commit()
 
         query = stockdatamodel.Valuation.query.filter(
             stockdatamodel.Valuation.ticker == ticker
@@ -167,6 +170,7 @@ class StockDataService:
             q = stockdatamodel.Financial.query.filter(
                 stockdatamodel.Financial.ticker == ticker
             )
+            financial_item = None
             count = 0
             count = q.count()
             first = None
@@ -199,29 +203,32 @@ class StockDataService:
                     logger.debug(
                         "Entry for {0} already exists - refreshing".format(ticker)
                     )
-                    financial = q.first()
-                    financial.beta = beta
-                    financial.dividend_yield = div_yield
-                    financial.company_name = company_name
-                    financial.updated = today
-                    db_session.commit()
+                    financial_item = q.first()
+                    financial_item.beta = beta
+                    financial_item.dividend_yield = div_yield
+                    financial_item.company_name = company_name
+                    financial_item.updated = today
+                    self.db_session.commit()
                     logger.debug(
                         "Returning financial {financial}".format(financial=financial)
                     )
-                    return financial
+                    return financial_item
 
                 else:
-                    f = Financial(
+                    financial_item = Financial(
                         ticker=ticker,
                         dividend_yield=div_yield,
                         beta=beta,
                         updated=today,
                         company_name=company_name,
                     )
-                    logger.debug("Added Financials for {ticker}".format(ticker=ticker))
-                db_session.add(f)
-                db_session.commit()
-                return f
+                    #breakpoint()
+                    logger.debug(f"Added Financials for {ticker} {financial_item}")
+                self.db_session.add(financial_item)
+                self.db_session.commit()
+                return stockdatamodel.Financial.query.filter(
+                stockdatamodel.Financial.ticker == ticker
+                ).first()
         except Exception as e:
             logger.exception(e)
         else:
@@ -302,7 +309,7 @@ class StockDataService:
                         fcf=0.0,
                         working_capital=0.0,
                     )
-                    db_session.add(f)
+                    self.db_session.add(f)
 
                 else:
                     f = query.first()
@@ -323,7 +330,7 @@ class StockDataService:
                         f.current_ratio = (year_ratio.current_ratio,)
                         f.debt_equity = (year_ratio.debt_equity,)
 
-            db_session.commit()
+            self.db_session.commit()
 
             # Return the thing
             query = stockdatamodel.Ratio.query.filter(
@@ -388,14 +395,14 @@ class StockDataService:
                     ticker=ticker, period=dividend.date, dividend=dividend.dividend,
                 )
                 try:
-                    db_session.add(d)
+                    self.db_session.add(d)
                 except Exception as e:
                     logger.debug("Failed to add dividend to DB")
 
         try:
-            db_session.commit()
+            self.db_session.commit()
         except Exception as e:
-            #db_session.rollback()
+            #self.db_session.rollback()
             logger.debug("Failed to commit dividend to DB")
 
         return stockdatamodel.Dividend.query.filter(

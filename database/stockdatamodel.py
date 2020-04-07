@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey
-from database.database import Base
+from database.base import Base
 
 
 class Financial(Base):
@@ -11,13 +11,8 @@ class Financial(Base):
     company_name = Column(String(50))
 
     def __repr__(self):
-        return "<ticket: {ticker}, yield: {div_yield}, beta:{beta}, updated:{updated}>".format(
-            ticker=self.ticker,
-            div_yield=self.dividend_yield,
-            beta=self.beta,
-            updated=self.updated,
-        )
-
+        return f"<ticker: {self.ticker}, yield: {self.dividend_yield}, beta:{self.beta}, updated:{self.updated}, {self.company_name}>"
+        
     def dump(self):
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith("_")])
 
@@ -80,3 +75,4 @@ class Dividend(Base):
 
     def dump(self):
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith("_")])
+
