@@ -80,38 +80,44 @@ class StockDataService:
         alt_ticker = None
 
         try:
-            financial = self._get_financial(ticker, refresh).dump()
+            financial_item = self._get_financial(ticker, refresh)
+            financial = financial_item.dump()
             logger.debug(
                 "This is the financial {financial}".format(financial=financial)
             )
+            if financial_item.updated < datetime.today().date():
+                refresh = True
+            # Get Key Ratios (incl health)
+            ratios = [val.dump() for val in self._get_key_ratios(ticker, refresh)]
+    
+            # Get Valuation
+            valuations = [val.dump() for val in self._get_valuation_history(ticker, refresh)]
+            logger.debug(valuations)
+            
+
+            financial["ratios"] = ratios
+            financial["valuations"] = valuations
+    
+            # TODO: Get Dividend history
+            dividend_history = [val.dump() for val in self._get_dividend_history(ticker, refresh)]
+    
+            # Assemble stock data
+            stockdata = {
+                "symbol": ticker,
+                "name": financial["company_name"],
+                "financials": financial,
+                "dividend_history": dividend_history,
+            }
+    
+            return jsonify(stockdata)
+            
         except Exception as e:
             logger.exception(
                 "Failed to retrieve data for {ticker}".format(ticker=ticker)
             )
             return "Not found", 404
 
-        # Get Key Ratios (incl health)
-        ratios = [val.dump() for val in self._get_key_ratios(ticker, refresh)]
-
-        # Get Valuation
-        valuations = [val.dump() for val in self._get_valuation_history(ticker, refresh)]
-        logger.debug(valuations)
-
-        financial["ratios"] = ratios
-        financial["valuations"] = valuations
-
-        # TODO: Get Dividend history
-        dividend_history = [val.dump() for val in self._get_dividend_history(ticker, refresh)]
-
-        # Assemble stock data
-        stockdata = {
-            "symbol": ticker,
-            "name": financial["company_name"],
-            "financials": financial,
-            "dividend_history": dividend_history,
-        }
-
-        return jsonify(stockdata)
+        
 
     def _get_valuation_history(self, ticker="ACN", refresh=False):
         """
@@ -209,9 +215,11 @@ class StockDataService:
                     financial_item.company_name = company_name
                     financial_item.updated = today
                     self.db_session.commit()
+                    
                     logger.debug(
-                        "Returning financial {financial}".format(financial=financial)
+                        "Returning financial {financial}".format(financial=financial_item)
                     )
+                    
                     return financial_item
 
                 else:
@@ -287,7 +295,9 @@ class StockDataService:
                 query = stockdatamodel.Ratio.query.filter(
                     stockdatamodel.Ratio.ticker == ticker
                 ).filter(stockdatamodel.Ratio.period == period)
-                if query.count() < 1 or refresh:
+                
+                if query.count() < 1:
+                    
                     logger.debug(f"Decided to refresh {refresh} {ticker} {period}")
                     f = stockdatamodel.Ratio(
                         ticker=ticker,
@@ -319,16 +329,16 @@ class StockDataService:
                         logger.debug(f"We are force refreshing {ticker} {period}")
                         # f.ticker = ticker
                         # f.period = period
-                        f.revenue = (year_ratio.revenue,)
-                        f.gross_margin = (year_ratio.gross_margin,)
-                        f.operating_income = (year_ratio.operating_income,)
-                        f.operating_margin = (year_ratio.operating_margin,)
-                        f.net_income = (year_ratio.net_income,)
-                        f.eps = (year_ratio.earnings_per_share,)
-                        f.dividends = (year_ratio.dividend,)
-                        f.payout_ratio = (year_ratio.payout_ratio,)
-                        f.current_ratio = (year_ratio.current_ratio,)
-                        f.debt_equity = (year_ratio.debt_equity,)
+                        f.revenue = year_ratio.revenue
+                        f.gross_margin = year_ratio.gross_margin
+                        f.operating_income = year_ratio.operating_income
+                        f.operating_margin = year_ratio.operating_margin
+                        f.net_income = year_ratio.net_income
+                        f.eps = year_ratio.earnings_per_share
+                        f.dividends = year_ratio.dividend
+                        f.payout_ratio = year_ratio.payout_ratio
+                        f.current_ratio = year_ratio.current_ratio
+                        f.debt_equity = year_ratio.debt_equity
 
             self.db_session.commit()
 
@@ -384,7 +394,8 @@ class StockDataService:
             )
             refresh = True
         if refresh:
-            dividends = self.api.get_dividend_history(ticker=ticker)
+            dividends = self.api.get_dividend_history(ticker=ticker, refresh = refresh)
+
             for dividend in dividends:
                 query = stockdatamodel.Dividend.query.filter(
                     stockdatamodel.Dividend.ticker == ticker

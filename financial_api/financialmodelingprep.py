@@ -148,7 +148,7 @@ class FinancialModelingPrep(FinancialApi):
     def _get_data_api(self, ticker: str, data_type: str, refresh=False):
         key = self._get_cache_key(ticker=ticker, data_type=data_type)
         stored_data = self._load_cache(key=key)
-        if stored_data:
+        if stored_data and not refresh:
             return stored_data
         # If we get here we need to retrieve it
         url = f"{ENDPOINTS[data_type]}/{ticker}"
