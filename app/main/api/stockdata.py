@@ -1,18 +1,16 @@
 # Handler for reading Tickers
-from stockdata_service import stockdata_service
+
+from app.main.stockdata_service import stockdata_service
 import logging
-import database.base
 
 logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.DEBUG)
 
-#breakpoint()
-
-sd = stockdata_service.StockDataService(db_session=database.base.db_session)
-logger.debug(f"I just created a new session and who knows why?")
+sd = stockdata_service.StockDataService()
 logger.debug(f"HELLO FROM{__name__} ")
 # Handler for getting a ticker
+
 def get(ticker, force_refresh):
     # Invoke the stock data extractor
     logger.debug(

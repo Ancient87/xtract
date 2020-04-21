@@ -3,18 +3,15 @@
 from flask import jsonify
 import json
 import pickle
-import traceback
-from database.stockdatamodel import *
-from database import stockdatamodel
+from app.main.model.stockdatamodel import *
+from app.main.model import stockdatamodel
+from app.main import db
 from datetime import date, datetime, timedelta
-import database
-import database.database
 import os
 import requests
 import logging
 import pickle
-import financial_api.financialmodelingprep
-
+from app.main.financial_api.financialmodelingprep import FinancialModelingPrep
 
 FINANCIAL_API = "https://financialmodelingprep.com/api/v3"
 INCOME_STATEMENT_ENDPOINT = f"{FINANCIAL_API}/income-statement"
@@ -24,16 +21,17 @@ PROFILE_ENDPOINT = f"{FINANCIAL_API}/beta"
 DIVIDEND_ENDPOINT = f"{FINANCIAL_API}/historical-price-full/stock_dividend"
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 
 class StockDataService:
-    def __init__(self, db_session):
-        self.db_session = db_session
+    def __init__(self):
+        #db.session_maker = database.Session
+        #db.session = None
         logger.debug("Instantiated StockDataService")
         if not os.path.exists("tmp"):
             logger.debug("Creating tmp dir")
             os.makedirs("tmp")
-        self.api = financial_api.financialmodelingprep.FinancialModelingPrep()
+        self.api = FinancialModelingPrep()
 
 
     def _getStockDataResponse(self, key_ratios):
@@ -69,7 +67,7 @@ class StockDataService:
         This function goes and pulls the financials from the DBs if they exist or else (or if forced) reloads the DB. Then is constructs the JSON response required for DivGro and returns it as an object complying with swagger spec
         :return Ratios object
         """
-
+        
         # Build financials
         logger.debug("Request for {0} forcing_refresh {1}".format(ticker, refresh))
         # financial = {}
@@ -104,7 +102,7 @@ class StockDataService:
             
             if (refresh):
                 financial_item.updated = today
-                self.db_session.commit()
+                db.session.commit()
     
             # Assemble stock data
             stockdata = {
@@ -160,11 +158,11 @@ class StockDataService:
                     ticker=ticker, year=date, valuation=valuation_i.valuation
                 )
                 logger.debug(valuation)
-                self.db_session.add(valuation)
+                db.session.add(valuation)
             elif refresh:
                 valuation = query.first()
                 valuation.valuation = valuation_i.valuation
-        self.db_session.commit()
+        db.session.commit()
 
         query = stockdatamodel.Valuation.query.filter(
             stockdatamodel.Valuation.ticker == ticker
@@ -219,7 +217,7 @@ class StockDataService:
                     financial_item.dividend_yield = div_yield
                     financial_item.company_name = company_name
                     financial_item.updated = today
-                    self.db_session.commit()
+                    db.session.commit()
                     
                     logger.debug(
                         "Returning financial {financial}".format(financial=financial_item)
@@ -237,8 +235,8 @@ class StockDataService:
                     )
                     
                     logger.debug(f"Added Financials for {ticker} {financial_item}")
-                self.db_session.add(financial_item)
-                self.db_session.commit()
+                db.session.add(financial_item)
+                db.session.commit()
                 return stockdatamodel.Financial.query.filter(
                 stockdatamodel.Financial.ticker == ticker
                 ).first()
@@ -324,7 +322,7 @@ class StockDataService:
                         fcf=0.0,
                         working_capital=0.0,
                     )
-                    self.db_session.add(f)
+                    db.session.add(f)
 
                 else:
                     f = query.first()
@@ -345,7 +343,7 @@ class StockDataService:
                         f.current_ratio = year_ratio.current_ratio
                         f.debt_equity = year_ratio.debt_equity
 
-            self.db_session.commit()
+            db.session.commit()
 
             # Return the thing
             query = stockdatamodel.Ratio.query.filter(
@@ -412,14 +410,14 @@ class StockDataService:
                     ticker=ticker, period=dividend.date, dividend=dividend.dividend,
                 )
                 try:
-                    self.db_session.add(d)
+                    db.session.add(d)
                 except Exception as e:
                     logger.debug("Failed to add dividend to DB")
 
         try:
-            self.db_session.commit()
+            db.session.commit()
         except Exception as e:
-            #self.db_session.rollback()
+            #db.session.rollback()
             logger.debug("Failed to commit dividend to DB")
 
         return stockdatamodel.Dividend.query.filter(

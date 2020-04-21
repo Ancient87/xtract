@@ -20,9 +20,17 @@ ConfigParser = "^4.0.2"
 mysql-connector = "^2.2.9"
 selenium = "^3.141.0"
 sqlalchemy_utils = "^0.36.3"
+flask_sqlalchemy = "^2.4.1"
+flask-bcrypt = "^0.7.1"
+flask-restplus = "^0.13.0"
+Flask-Migrate = "^2.5.3"
+pyjwt = "^1.7.1"
+Flask-Script = "^2.0.6"
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.1"
 black = "^19.10b0"
+flask-bcrypt = "^0.7.1"
+flask_testing = "^0.8.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

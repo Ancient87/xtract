@@ -2,18 +2,19 @@ from flask import (
     Flask,
     render_template,
 )
+from flask_sqlalchemy import SQLAlchemy
 import connexion
 from connexion.resolver import RestyResolver
 from flask_cors import CORS
 import os
+import api
 
-import database.base
 import logging, sys
 import logging.config
 from flask.logging import default_handler
 from collections import defaultdict
 
-
+#from database import db_session
 
 LOGGING = {
     "version": 1,
@@ -26,7 +27,7 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "stream": sys.stdout,
             "formatter": "verbose",
-            "level": logging.WARNING,
+            "level": logging.DEBUG,
         },
         "sys-logger6": {
             "class": "logging.handlers.SysLogHandler",
@@ -64,15 +65,32 @@ logging.config.dictConfig(LOGGING)
 
 logging.getLogger(__name__).debug("Hi {0}".format(__name__))
 
-import api
 
 APP_HOST = os.environ["APP_HOST"]
 APP_PORT = os.environ["APP_PORT"]
 
-app = connexion.App(__name__, specification_dir="api")
+# Get this from ENVIRON VARS (this will be needed for k8s
+DB_USER = os.environ["DB_USER"]
+DB_PASSWD = os.environ["DB_PASSWD"]
+DB_HOST = os.environ["DB_HOST"]
+DB_NAME = os.environ["DB_NAME"]
 
-app.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
-application = app.app
+# Construct DB string
+DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format(
+    user=DB_USER, passwd=DB_PASSWD, host=DB_HOST, db=DB_NAME,
+)
+
+app_connex = connexion.App(__name__, specification_dir="api")
+app = app_connex.app
+app.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
+
+app_connex.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
+application = app
+
+db = None
+
+def get_db():
+    db = SQLAlchemy(app)
 
 @app.route("/")
 def home():
@@ -81,23 +99,6 @@ def home():
     """
     return api.stockdata.get("AMZN", False)
     return render_template("home.html")
-
-
-"""
-@app.cli.command()
-def routes():
-    'Display registered routes'
-    rules = []
-    for rule in app.url_map.iter_rules():
-        methods = ','.join(sorted(rule.methods))
-        rules.append((rule.endpoint, methods, str(rule)))
-
-    sort_by_rule = operator.itemgetter(2)
-    for endpoint, methods, rule in sorted(rules, key=sort_by_rule):
-        route = '{:50s} {:25s} {}'.format(endpoint, methods, rule)
-        print(route)
-"""
-
 
 def list_routes():
     """
@@ -122,7 +123,10 @@ def list_routes():
         for rule, methods in sorted(clean_map[endpoint], key=lambda x: x[1]):
             print(format_str(endpoint, methods, rule))
 
-
-if __name__ == "__main__":
+def start():
     list_routes()
     app.run(host=APP_HOST, port=APP_PORT, debug=True)
+
+if __name__ == "__main__":
+    start()
+

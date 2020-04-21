@@ -1,4 +1,4 @@
-from financial_api.financial_api import FinancialApi
+from app.main.financial_api.financial_api import FinancialApi
 import requests
 from typing import List, Dict
 import pickle

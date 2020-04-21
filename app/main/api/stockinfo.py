@@ -5,7 +5,7 @@ import database.base
 
 db_session = database.base.db_session
 
-sd = stockdata_service.StockDataService(db_session=db_session)
+sd = stockdata_service.StockDataService()
 
 # Handler for getting a ticker
 def get(ticker):
