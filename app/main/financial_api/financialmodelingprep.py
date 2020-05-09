@@ -102,13 +102,13 @@ class FinancialModelingPrep(FinancialApi):
         financial_ratios = self._get_financial_ratios(ticker=ticker, refresh=refresh)[
             "ratios"
         ][0]
-
         financial = FinancialApi.Financial(
             dividend_yield=financial_ratios["investmentValuationRatios"][
                 "dividendYield"
             ],
             beta=profile["beta"],
             company_name=profile["companyName"],
+            quote=profile["price"],
         )
 
         return financial

@@ -62,11 +62,12 @@ class FinancialApi:
 
     class Financial:
         def __init__(
-            self, dividend_yield: str, beta: float, company_name: str,
+            self, dividend_yield: str, beta: float, company_name: str, quote: float,
         ):
             self.dividend_yield = dividend_yield
             self.beta = beta
             self.company_name = company_name
+            self.quote = quote
 
     class Ratio:
         def __init__(

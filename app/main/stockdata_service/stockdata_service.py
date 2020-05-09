@@ -208,6 +208,7 @@ class StockDataService:
                 div_yield = data.dividend_yield
                 beta = data.beta
                 company_name = data.company_name
+                quote = data.quote
                 if q.count() == 1:
                     logger.debug(
                         "Entry for {0} already exists - refreshing".format(ticker)
@@ -217,6 +218,7 @@ class StockDataService:
                     financial_item.dividend_yield = div_yield
                     financial_item.company_name = company_name
                     financial_item.updated = today
+                    financial_item.quote = quote
                     db.session.commit()
                     
                     logger.debug(
@@ -232,6 +234,7 @@ class StockDataService:
                         beta=beta,
                         updated=today,
                         company_name=company_name,
+                        quote = quote,
                     )
                     
                     logger.debug(f"Added Financials for {ticker} {financial_item}")
