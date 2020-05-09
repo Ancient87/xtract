@@ -1,25 +1,47 @@
 import unittest
-import stockdata_service
-from xtract import *
+from app.main import stockdata_service
 from test import *
 from flask import current_app
 import logging
+import pytest
+import app
+import os
 
 logger = logging.getLogger(__name__)
 
+TEST_TICKER = "MSFT"
+TEST_COMPANY_NAME = "Microsoft Corporation"
+FORCE_REFRESH = False
+
+
+@pytest.fixture
+def client():
+    db_fd, app.config['DATABASE'] = tempfile.mkstemp()
+    app.config['TESTING'] = True
+
+    with self.app.test_client() as client:
+        with self.app.app_context():
+            app.init_db()
+        yield client
+
+    os.close(db_fd)
+    os.unlink(app.config['DATABASE'])
 
 class StockDataTestCase(unittest.TestCase):
     def setUp(self):
         self.sd = stockdata_service.stockdata_service.StockDataService()
+        
+        self.app, self.app_connex, self.port = app.main.create_app(os.getenv('BOILERPLATE_ENV') or 'dev')
+        self.app.app_context().push()
     
     def test_ticker(self):
-        with application.app_context():
+        with self.app.app_context():
             logger.debug(f"Gettings Ticker for {TEST_TICKER}")
             ticker = self.sd.get_ticker(TEST_TICKER, refresh=FORCE_REFRESH)
             logger.debug(ticker)
     
     def test_financial(self):
-        with application.app_context():
+        with self.app.app_context():
             logger.debug(f"Gettings Ticker for {TEST_TICKER}")
             financial = self.sd._get_financial(
                 ticker=TEST_TICKER, refresh=FORCE_REFRESH
@@ -27,7 +49,7 @@ class StockDataTestCase(unittest.TestCase):
             assert financial.company_name == TEST_COMPANY_NAME
 
     def test_ratios(self):
-        with application.app_context():
+        with self.app.app_context():
             logger.debug(f"Gettings ratios for {TEST_TICKER}")
             ratios = self.sd._get_key_ratios(ticker=TEST_TICKER, refresh=FORCE_REFRESH)
             assert len(ratios) > 0
@@ -36,7 +58,7 @@ class StockDataTestCase(unittest.TestCase):
             assert ratio_one.revenue != 0.0
 
     def test_valuations(self):
-        with application.app_context():
+        with self.app.app_context():
             logger.debug(f"Gettings valuation for {TEST_TICKER}")
             valuations = self.sd._get_valuation_history(
                 ticker=TEST_TICKER, refresh=FORCE_REFRESH
@@ -47,7 +69,7 @@ class StockDataTestCase(unittest.TestCase):
             assert valuation_one.valuation != 0.0
 
     def test_dividends(self):
-        with application.app_context():
+        with self.app.app_context():
             logger.debug(f"Gettings dividend history for {TEST_TICKER}")
             dividends = self.sd._get_dividend_history(
                 ticker=TEST_TICKER, refresh=FORCE_REFRESH

@@ -8,6 +8,7 @@ class Financial(db.Model):
     beta = db.Column(db.Float)
     updated = db.Column(db.Date)
     company_name = db.Column(db.String(50))
+    quote = db.Column(db.Float)
 
     def __repr__(self):
         return f"<ticker: {self.ticker}, yield: {self.dividend_yield}, beta:{self.beta}, updated:{self.updated}, {self.company_name}>"

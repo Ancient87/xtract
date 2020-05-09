@@ -1,7 +1,10 @@
 import unittest
-import database
-import database.database
-
+import app.main
+from app.main import db
+import app.main.model.stockdatamodel
+import os
+import tempfile
+import pytest
 # import date from datetime
 
 TEST_TICKER = "GLUMANDA"
@@ -10,10 +13,24 @@ TEST_FCF = 9.93
 TEST_FD = 999.99
 
 
+@pytest.fixture
+def client():
+    db_fd, app.config['DATABASE'] = tempfile.mkstemp()
+    app.config['TESTING'] = True
+
+    with app.test_client() as client:
+        with app.app_context():
+            app.init_db()
+        yield client
+
+    os.close(db_fd)
+    os.unlink(app.config['DATABASE'])
+
 class DatabaseConnectionTestCase(unittest.TestCase):
     def setUp(self):
         print("Setting up the DB")
-        self.db = database.database.init_db()
+        
+        #self.db = db.init_db()
         self.delete_test_financial()
 
     def test_1_write_and_read_back_StockData(self):
@@ -23,13 +40,13 @@ class DatabaseConnectionTestCase(unittest.TestCase):
             )
         )
 
-        financial = database.stockdatamodel.Financial(
+        financial = app.main.model.stockdatamodel.Financial(
             ticker=TEST_TICKER, beta=TEST_FD, dividend_yield=TEST_FD,
         )
-        database.database.db_session.add(financial)
-        database.database.db_session.commit()
+        db.session.add(financial)
+        db.session.commit()
 
-        f = database.stockdatamodel.Ratio(
+        f = app.main.model.stockdatamodel.Ratio(
             ticker=TEST_TICKER,
             period=TEST_PERIOD,
             gross_margin=34,
@@ -48,8 +65,8 @@ class DatabaseConnectionTestCase(unittest.TestCase):
             debt_equity=10.0,
         )
         print("Adding {0}".format(f))
-        database.database.db_session.add(f)
-        database.database.db_session.commit()
+        db.session.add(f)
+        db.session.commit()
 
         # check it's there
         print("Reading it back")
@@ -80,15 +97,15 @@ class DatabaseConnectionTestCase(unittest.TestCase):
         assert read_q.count() == 0
 
     def read_test_financial(self):
-        query = database.stockdatamodel.Financial.query.filter(
-            database.stockdatamodel.Financial.ticker == TEST_TICKER
+        query = app.main.model.stockdatamodel.Financial.query.filter(
+            app.main.model.stockdatamodel.Financial.ticker == TEST_TICKER
         )
         return query
 
     def read_test_ratios(self):
-        query = database.stockdatamodel.Ratio.query.filter(
-            database.stockdatamodel.Ratio.ticker == TEST_TICKER
-        ).filter(database.stockdatamodel.Ratio.period == TEST_PERIOD)
+        query = app.main.model.stockdatamodel.Ratio.query.filter(
+            app.main.model.stockdatamodel.Ratio.ticker == TEST_TICKER
+        ).filter(app.main.model.stockdatamodel.Ratio.period == TEST_PERIOD)
         return query
 
     def delete_test_financial(self):
@@ -97,15 +114,15 @@ class DatabaseConnectionTestCase(unittest.TestCase):
         test_financial = self.read_test_financial()
         # print(test_fin)
         if test_ratios.count() == 1:
-            database.database.db_session.delete(test_ratios.first())
+            db.session.delete(test_ratios.first())
 
-        database.database.db_session.commit()
+        db.session.commit()
 
         if test_financial.count() == 1:
             print("Deleting our test financials")
-            database.database.db_session.delete(test_financial.first())
+            db.session.delete(test_financial.first())
 
-        database.database.db_session.commit()
+        db.session.commit()
 
 
 if __name__ == "__main__":

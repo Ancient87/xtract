@@ -20,7 +20,7 @@ PROD_DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format(
 )
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'Glumanda87!')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'LOL')
     DEBUG = False
 
 

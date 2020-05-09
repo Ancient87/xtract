@@ -1,11 +1,15 @@
 import unittest
-import financial_api
-import financial_api.financialmodelingprep
+from app.main import financial_api
+#import financial_api.financialmodelingprep
 import logging
 
 logger = logging.getLogger(__name__)
 
 from test import *
+
+TEST_TICKER = "MSFT"
+TEST_COMPANY_NAME = "Microsoft Corporation"
+FORCE_REFRESH = False
 
 
 class FinancialModelingPrepAPITest(unittest.TestCase):
