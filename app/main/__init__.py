@@ -21,4 +21,4 @@ def create_app(config_name):
     db.init_app(app)
     flask_bcrypt.init_app(app)
 
-    return (app, app_connex)
+    return (app, app_connex, config_by_name[config_name].APP_PORT)

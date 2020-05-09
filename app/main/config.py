@@ -31,7 +31,7 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = PROD_DB_URL
     #SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'flask_boilerplate_main.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    FLASK_RUN_PORT = APP_PORT
+    APP_PORT = APP_PORT
 
 class TestingConfig(Config):
     DEBUG = True
