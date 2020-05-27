@@ -84,7 +84,7 @@ class StockDataService:
                 "This is the financial {financial}".format(financial=financial)
             )
             today = datetime.today().date()
-            if financial_item.updated < today:
+            if financial_item.updated.year < today.year and financial_item.updated.month < today.month:
                 refresh = True
             # Get Key Ratios (incl health)
             ratios = [val.dump() for val in self._get_key_ratios(ticker, refresh)]

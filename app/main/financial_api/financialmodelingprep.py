@@ -3,8 +3,11 @@ import requests
 from typing import List, Dict
 import pickle
 import logging
+import os
 
 logger = logging.getLogger(__name__)
+
+APIKEY = os.environ.get("API_KEY")
 
 FINANCIAL_API = "https://financialmodelingprep.com/api/v3"
 ENDPOINT_INCOME_STATEMENT = f"{FINANCIAL_API}/financials/income-statement"
@@ -151,8 +154,8 @@ class FinancialModelingPrep(FinancialApi):
         if stored_data and not refresh:
             return stored_data
         # If we get here we need to retrieve it
-        url = f"{ENDPOINTS[data_type]}/{ticker}"
-        logger.debug(f"Attempting to refresh {url}")
+        url = f"{ENDPOINTS[data_type]}/{ticker}?apikey={APIKEY}"
+        logger.warn(f"Attempting to refresh from API")
         data = self._load_and_cache(url=url, key=key)
 
         return data
