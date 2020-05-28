@@ -80,13 +80,15 @@ class StockDataService:
         try:
             financial_item = self._get_financial(ticker, refresh)
             financial = financial_item.dump()
-            logger.debug(
-                "This is the financial {financial}".format(financial=financial)
-            )
+            
             today = datetime.today().date()
-            if financial_item.updated.year < today.year and financial_item.updated.month < today.month:
+            if financial_item.updated.year < today.year or financial_item.updated.month < today.month:
                 refresh = True
             # Get Key Ratios (incl health)
+            logger.debug(
+                f"This is the financial {financial} REFRESH {refresh}"
+            )
+            
             ratios = [val.dump() for val in self._get_key_ratios(ticker, refresh)]
     
             # Get Valuation
@@ -129,7 +131,7 @@ class StockDataService:
         """
 
         # Try the database
-        year_ref = datetime.today().year
+        year_ref = datetime.today().year-1
         year_object = datetime(year_ref, 12, 31)
 
         query = stockdatamodel.Valuation.query.filter(
@@ -196,7 +198,7 @@ class StockDataService:
                 or count == 0
                 or first == None
                 or updated == None
-                or updated < yesterday.date()
+                #or updated < yesterday.date()
             ):
                 logger.debug(
                     "Retrieving financials for {0} q.count {1} updated {2}".format(
@@ -286,74 +288,73 @@ class StockDataService:
         """
         Uses API provider
         """
-
-        ratios = self.api.get_ratios(ticker=ticker, refresh=refresh)
-
-        if ratios:
-            # Deal with the key ratios and write them to the DB
-            call = []
-            # Key Financials
-
-            # Loop through the result
-            for year_ratio in ratios:
-                period = year_ratio.date
-                # Check if it exists
-                query = stockdatamodel.Ratio.query.filter(
-                    stockdatamodel.Ratio.ticker == ticker
-                ).filter(stockdatamodel.Ratio.period == period)
-                
-                if query.count() < 1:
+        if refresh:
+            ratios = self.api.get_ratios(ticker=ticker, refresh=refresh)
+            if ratios:
+                # Deal with the key ratios and write them to the DB
+                call = []
+                # Key Financials
+    
+                # Loop through the result
+                for year_ratio in ratios:
+                    period = year_ratio.date
+                    # Check if it exists
+                    query = stockdatamodel.Ratio.query.filter(
+                        stockdatamodel.Ratio.ticker == ticker
+                    ).filter(stockdatamodel.Ratio.period == period)
                     
-                    logger.debug(f"Decided to refresh {refresh} {ticker} {period}")
-                    f = stockdatamodel.Ratio(
-                        ticker=ticker,
-                        period=period,
-                        revenue=year_ratio.revenue,
-                        gross_margin=year_ratio.gross_margin,
-                        operating_income=year_ratio.operating_income,
-                        operating_margin=year_ratio.operating_margin,
-                        net_income=year_ratio.net_income,
-                        eps=year_ratio.earnings_per_share,
-                        dividends=year_ratio.dividend,
-                        payout_ratio=year_ratio.payout_ratio,
-                        current_ratio=year_ratio.current_ratio,
-                        debt_equity=year_ratio.debt_equity,
-                        shares=0.0,
-                        bps=0.0,
-                        operating_cash_flow=0.0,
-                        cap_spending=0.0,
-                        fcf=0.0,
-                        working_capital=0.0,
-                    )
-                    db.session.add(f)
+                    if query.count() < 1:
+                        
+                        logger.debug(f"Decided to refresh {refresh} {ticker} {period}")
+                        f = stockdatamodel.Ratio(
+                            ticker=ticker,
+                            period=period,
+                            revenue=year_ratio.revenue,
+                            gross_margin=year_ratio.gross_margin,
+                            operating_income=year_ratio.operating_income,
+                            operating_margin=year_ratio.operating_margin,
+                            net_income=year_ratio.net_income,
+                            eps=year_ratio.earnings_per_share,
+                            dividends=year_ratio.dividend,
+                            payout_ratio=year_ratio.payout_ratio,
+                            current_ratio=year_ratio.current_ratio,
+                            debt_equity=year_ratio.debt_equity,
+                            shares=0.0,
+                            bps=0.0,
+                            operating_cash_flow=0.0,
+                            cap_spending=0.0,
+                            fcf=0.0,
+                            working_capital=0.0,
+                        )
+                        db.session.add(f)
+    
+                    else:
+                        f = query.first()
+                        logger.debug(f)
+                        # If we need to force refresh update it
+                        if refresh:
+                            logger.debug(f"We are force refreshing {ticker} {period}")
+                            # f.ticker = ticker
+                            # f.period = period
+                            f.revenue = year_ratio.revenue
+                            f.gross_margin = year_ratio.gross_margin
+                            f.operating_income = year_ratio.operating_income
+                            f.operating_margin = year_ratio.operating_margin
+                            f.net_income = year_ratio.net_income
+                            f.eps = year_ratio.earnings_per_share
+                            f.dividends = year_ratio.dividend
+                            f.payout_ratio = year_ratio.payout_ratio
+                            f.current_ratio = year_ratio.current_ratio
+                            f.debt_equity = year_ratio.debt_equity
+    
+                db.session.commit()
 
-                else:
-                    f = query.first()
-                    logger.debug(f)
-                    # If we need to force refresh update it
-                    if refresh:
-                        logger.debug(f"We are force refreshing {ticker} {period}")
-                        # f.ticker = ticker
-                        # f.period = period
-                        f.revenue = year_ratio.revenue
-                        f.gross_margin = year_ratio.gross_margin
-                        f.operating_income = year_ratio.operating_income
-                        f.operating_margin = year_ratio.operating_margin
-                        f.net_income = year_ratio.net_income
-                        f.eps = year_ratio.earnings_per_share
-                        f.dividends = year_ratio.dividend
-                        f.payout_ratio = year_ratio.payout_ratio
-                        f.current_ratio = year_ratio.current_ratio
-                        f.debt_equity = year_ratio.debt_equity
-
-            db.session.commit()
-
-            # Return the thing
-            query = stockdatamodel.Ratio.query.filter(
-                stockdatamodel.Ratio.ticker == ticker
-            )
-
-            return query.all()
+        # Return the thing
+        query = stockdatamodel.Ratio.query.filter(
+            stockdatamodel.Ratio.ticker == ticker
+        )
+    
+        return query.all()
 
     def _get_dividend_history(self, ticker, refresh=False):
         """ Retrieves the dividend history for the given ticker
@@ -377,7 +378,6 @@ class StockDataService:
             # Refresh if need be and return
             if dividend_history_query.count() < 1:
                 refresh = True
-
             res = self._get_dividend_history_db(ticker=ticker, refresh=refresh)
             return res
             # If they don't exist error
