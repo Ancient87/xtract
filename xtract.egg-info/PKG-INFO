@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: xtract
+Version: 0.1.1
+Summary: Stock extractor
+Home-page: UNKNOWN
+Author: Sev Gassauer-Fleissner
+Author-email: severin.gassauer@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.7,<4.0
