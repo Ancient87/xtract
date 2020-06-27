@@ -9,6 +9,7 @@ from .config import config_by_name
 db = SQLAlchemy()
 flask_bcrypt = Bcrypt()
 
+
 def create_app(config_name):
     app_connex = connexion.App(__name__, specification_dir="api")
     app = app_connex.app
@@ -21,3 +22,6 @@ def create_app(config_name):
     flask_bcrypt.init_app(app)
 
     return (app, app_connex, config_by_name[config_name].APP_PORT)
+    
+prod_app = create_app("prod")[0]
+#

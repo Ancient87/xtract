@@ -45,6 +45,11 @@ class ProductionConfig(Config):
     DEBUG = False
     # uncomment the line below to use postgres
     SQLALCHEMY_DATABASE_URI = PROD_DB_URL
+    DEBUG = False
+    SQLALCHEMY_DATABASE_URI = PROD_DB_URL
+    #SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'flask_boilerplate_main.db')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    APP_PORT = APP_PORT
 
 config_by_name = dict(
     dev=DevelopmentConfig,

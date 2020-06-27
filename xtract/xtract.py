@@ -82,7 +82,7 @@ DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format(
 
 app_connex = connexion.App(__name__, specification_dir="api")
 app = app_connex.app
-xtract.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
+app.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
 
 app_connex.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
 application = app
@@ -92,7 +92,7 @@ db = None
 def get_db():
     db = SQLAlchemy(app)
 
-@xtract.route("/")
+@app.route("/")
 def home():
     """
     Hello world @ 5000
