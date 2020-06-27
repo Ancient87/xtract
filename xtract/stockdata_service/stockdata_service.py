@@ -3,15 +3,15 @@
 from flask import jsonify
 import json
 import pickle
-from app.main.model.stockdatamodel import *
-from app.main.model import stockdatamodel
-from app.main import db
+from xtract.model.stockdatamodel import *
+from xtract.model import stockdatamodel
+from xtract import db
 from datetime import date, datetime, timedelta
 import os
 import requests
 import logging
 import pickle
-from app.main.financial_api.financialmodelingprep import FinancialModelingPrep
+from xtract.financial_api.financialmodelingprep import FinancialModelingPrep
 
 FINANCIAL_API = "https://financialmodelingprep.com/api/v3"
 INCOME_STATEMENT_ENDPOINT = f"{FINANCIAL_API}/income-statement"

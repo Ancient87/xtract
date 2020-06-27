@@ -1,5 +1,5 @@
 import unittest
-from app.main import financial_api
+from xtract import financial_api
 #import financial_api.financialmodelingprep
 import logging
 

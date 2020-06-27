@@ -1,5 +1,5 @@
 import flask_bcrypt
-from app.main import db
+from xtract import db
 
 class Financial(db.Model):
     __tablename__ = "financials"

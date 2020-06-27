@@ -1,0 +1,48 @@
+version: 0.2
+run-as: root
+
+env:
+  variables:
+    # UPDATE HERE
+    COLOUR: "blue"
+    # UPDATE HERE
+    VERSION: "0.7"
+    CLUSTER_NAME: "bluegreen_eks_cluster"
+    ECR_URL: "863549835770.dkr.ecr.ap-southeast-1.amazonaws.com/bluegreen_ecr"
+    PROJECT_NAME: "bluegreen"
+    CLUSTER_ADMIN_ROLE: "arn:aws:iam::863549835770:role/Adminus"
+  git-credential-helper: yes
+  
+phases:
+  install:
+    run-as: root
+    runtime-versions:
+      python: 3.7
+    commands:
+      - echo Entered the install phase..
+      #- apt-get install -y docker
+  pre_build:
+    commands:
+      - echo Entered the pre-build phase
+      - aws sts get-caller-identity
+      #- temp_role=$(aws sts assume-role --role-arn $CLUSTER_ADMIN_ROLE --role-session-name whatever)
+      #- export AWS_ACCESS_KEY_ID=$(echo $temp_role | jq -r .Credentials.AccessKeyId)
+      #- export AWS_SECRET_ACCESS_KEY=$(echo $temp_role | jq -r .Credentials.SecretAccessKey)
+      #- export AWS_SESSION_TOKEN=$(echo $temp_role | jq -r .Credentials.SessionToken)
+      #- aws sts get-caller-identity
+      - aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin $ECR_URL
+      - aws eks update-kubeconfig --name $CLUSTER_NAME --alias $PROJECT_NAME
+      - aws --region ap-southeast-1 eks get-token --cluster-name bluegreen_eks_cluster
+      - cat ~/.kube/config
+      - kubectl get svc --all-namespaces --context $PROJECT_NAME
+  build:
+    commands:
+      - echo Entered the build phase
+      - docker build -t service1:$VERSION service_1
+  post_build:
+    commands:
+      - echo Entered the deploy phase
+      - docker tag service1:$VERSION $ECR_URL:$VERSION
+      - docker push $ECR_URL:$VERSION
+      - service_1/bg-deploy.sh service1 $COLOUR
+      - kubectl describe service -l app=service1  -n bluegreentest --context $PROJECT_NAME

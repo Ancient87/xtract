@@ -1,6 +1,6 @@
 # Handler for reading Tickers
 
-from app.main.stockdata_service import stockdata_service
+from xtract.stockdata_service import stockdata_service
 import logging
 
 logger = logging.getLogger(__name__)

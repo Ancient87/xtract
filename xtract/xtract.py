@@ -82,7 +82,7 @@ DB_URL = "mysql+mysqlconnector://{user}:{passwd}@{host}/{db}".format(
 
 app_connex = connexion.App(__name__, specification_dir="api")
 app = app_connex.app
-app.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
+xtract.config['SQLALCHEMY_DATABASE_URI'] = DB_URL
 
 app_connex.add_api("xtract_api_spec.yaml", resolver=RestyResolver("api"))
 application = app
@@ -92,7 +92,7 @@ db = None
 def get_db():
     db = SQLAlchemy(app)
 
-@app.route("/")
+@xtract.route("/")
 def home():
     """
     Hello world @ 5000
@@ -125,7 +125,7 @@ def list_routes():
 
 def start():
     list_routes()
-    app.run(host=APP_HOST, port=APP_PORT, debug=True)
+    xtract.run(host=APP_HOST, port=APP_PORT, debug=True)
 
 if __name__ == "__main__":
     start()

@@ -1,7 +1,7 @@
 import unittest
-import app.main
-from app.main import db
-import app.main.model.stockdatamodel
+import xtract
+from xtract import db
+import xtract.model.stockdatamodel
 import os
 import tempfile
 import pytest
@@ -17,6 +17,8 @@ TEST_FD = 999.99
 def client():
     db_fd, app.config['DATABASE'] = tempfile.mkstemp()
     app.config['TESTING'] = True
+    
+    
 
     with app.test_client() as client:
         with app.app_context():
@@ -30,6 +32,10 @@ class DatabaseConnectionTestCase(unittest.TestCase):
     def setUp(self):
         print("Setting up the DB")
         
+        self.app, self.app_connex, self.port = xtract.create_app(os.getenv('BOILERPLATE_ENV') or 'dev')
+        
+        self.app.app_context().push()
+        
         #self.db = db.init_db()
         self.delete_test_financial()
 
@@ -40,13 +46,13 @@ class DatabaseConnectionTestCase(unittest.TestCase):
             )
         )
 
-        financial = app.main.model.stockdatamodel.Financial(
+        financial = xtract.model.stockdatamodel.Financial(
             ticker=TEST_TICKER, beta=TEST_FD, dividend_yield=TEST_FD,
         )
         db.session.add(financial)
         db.session.commit()
 
-        f = app.main.model.stockdatamodel.Ratio(
+        f = xtract.model.stockdatamodel.Ratio(
             ticker=TEST_TICKER,
             period=TEST_PERIOD,
             gross_margin=34,
@@ -97,15 +103,15 @@ class DatabaseConnectionTestCase(unittest.TestCase):
         assert read_q.count() == 0
 
     def read_test_financial(self):
-        query = app.main.model.stockdatamodel.Financial.query.filter(
-            app.main.model.stockdatamodel.Financial.ticker == TEST_TICKER
+        query = xtract.model.stockdatamodel.Financial.query.filter(
+            xtract.model.stockdatamodel.Financial.ticker == TEST_TICKER
         )
         return query
 
     def read_test_ratios(self):
-        query = app.main.model.stockdatamodel.Ratio.query.filter(
-            app.main.model.stockdatamodel.Ratio.ticker == TEST_TICKER
-        ).filter(app.main.model.stockdatamodel.Ratio.period == TEST_PERIOD)
+        query = xtract.model.stockdatamodel.Ratio.query.filter(
+            xtract.model.stockdatamodel.Ratio.ticker == TEST_TICKER
+        ).filter(xtract.model.stockdatamodel.Ratio.period == TEST_PERIOD)
         return query
 
     def delete_test_financial(self):

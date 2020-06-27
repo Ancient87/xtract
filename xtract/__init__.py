@@ -9,12 +9,11 @@ from .config import config_by_name
 db = SQLAlchemy()
 flask_bcrypt = Bcrypt()
 
-
 def create_app(config_name):
     app_connex = connexion.App(__name__, specification_dir="api")
     app = app_connex.app
     
-    app_connex.add_api("xtract_api_spec.yaml", resolver=RestyResolver("app.main.api"))
+    app_connex.add_api("xtract_api_spec.yaml", resolver=RestyResolver("xtract.api"))
     application = app
 
     app.config.from_object(config_by_name[config_name])

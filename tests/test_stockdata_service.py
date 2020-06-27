@@ -1,10 +1,11 @@
 import unittest
-from app.main import stockdata_service
+import xtract
+from xtract.stockdata_service import stockdata_service
 from test import *
 from flask import current_app
 import logging
 import pytest
-import app
+import xtract
 import os
 
 logger = logging.getLogger(__name__)
@@ -29,9 +30,12 @@ def client():
 
 class StockDataTestCase(unittest.TestCase):
     def setUp(self):
-        self.sd = stockdata_service.stockdata_service.StockDataService()
         
-        self.app, self.app_connex, self.port = app.main.create_app(os.getenv('BOILERPLATE_ENV') or 'dev')
+        self.sd = xtract.stockdata_service.stockdata_service.StockDataService()
+        
+        
+        self.app, self.app_connex, self.port = xtract.create_app(os.getenv('BOILERPLATE_ENV') or 'dev')
+        
         self.app.app_context().push()
     
     def test_ticker(self):
